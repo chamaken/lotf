@@ -252,3 +252,79 @@ func TestPrevBytes(t *testing.T) {
 		t.Fatalf("expect '11: 1111111111111', but got: %s", string(line))
 	}
 }
+
+func TestSmallFile(t *testing.T) {
+	dir, err := ioutil.TempDir("", "lotf")
+	if err != nil {
+		t.Fatalf("TempDir failed: %s", err)
+	}
+	t.Logf("tmpdir: %s", dir)
+	defer os.RemoveAll(dir)
+	testFile, err := os.OpenFile(filepath.Join(dir, "TestFileLines.testfile"), os.O_RDWR|os.O_CREATE, 0666)
+	if err != nil {
+		t.Fatalf("testFile failed: %s", err)
+	}
+
+	// prepare file content
+	if err = testFile.Truncate(0); err != nil {
+		t.Fatalf("truncate testFile failed: %s", err)
+	}
+	if _, err = testFile.Seek(0, os.SEEK_SET); err != nil {
+		t.Fatalf("seek testFile failed: %s", err)
+	}
+
+	// empty file
+	if _, err = NewTailReader(testFile); err != ErrorEmpty {
+		t.Fatalf("should return ErrorEmpty but got: %v", err)
+	}
+
+	// one line without LF
+	if _, err = testFile.WriteString("test"); err != nil {
+		t.Fatalf("failed to WriteString: %s", err)
+	}
+	tr, err := NewTailReader(testFile)
+	if err != nil {
+		t.Fatalf("failed to create TailReader: %s", err)
+	}
+	line, err := tr.PrevSlice('\n')
+	if string(line) != "test" {
+		t.Fatalf("expect string 'test', but got: %s", string(line))
+	}
+	if err != ErrorStartOfFile {
+		t.Fatalf("expect ErrorStartOfFile but got: %s", err)
+	}
+
+	// put delim just buf border
+	if err = testFile.Truncate(0); err != nil {
+		t.Fatalf("truncate testFile failed: %s", err)
+	}
+	if _, err = testFile.Seek(0, os.SEEK_SET); err != nil {
+		t.Fatalf("seek testFile failed: %s", err)
+	}
+	if _, err = testFile.WriteString("0123456789abcdef\n0123456789abcde"); err != nil {
+		t.Fatalf("failed to WriteString: %s", err)
+	}
+	if tr, err = NewTailReaderSize(testFile, 16); err != nil {
+		t.Fatalf("failed to create TailReader: %s", err)
+	}
+	// first 16byte
+	if line, err = tr.PrevSlice('\n'); err != nil {
+		t.Fatalf("failed to PrevSlice: %s", err)
+	}
+	if string(line) != "\n0123456789abcde" {
+		t.Fatalf("expect string '\\n0123456789abcde' but got: %s", string(line))
+	}
+	if tr.Tell() != 16 {
+		t.Fatalf("Tell() should return 16, but got: %d", tr.Tell())
+	}
+	// 2nd 16byte
+	if line, err = tr.PrevSlice('\n'); err != ErrorStartOfFile {
+		t.Fatalf("failed to PrevSlice: %s", err)
+	}
+	if string(line) != "0123456789abcdef" {
+		t.Fatalf("expect string '0123456789abcdef' but got: %s", string(line))
+	}
+	if tr.Tell() != 0 {
+		t.Fatalf("Tell() should return 16, but got: %d", tr.Tell())
+	}
+}

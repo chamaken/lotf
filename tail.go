@@ -321,9 +321,10 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter *Filter, lines i
 	var pos int64		// TailName.lastp
 	var q *Blockq		// TailName.Lines
 
-	var r *bufio.Reader
-	var line []byte
+	var tr *TailReader
+	var line, lastLine []byte
 	var err error
+	nlines := maxline
 
 	// normalize pathname
 	if absname, err = filepath.Abs(pathname); err != nil {
@@ -341,33 +342,51 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter *Filter, lines i
 		return nil, err
 	}
 
-	// move seek pos to specified
-	if pos, err = FileLines(file, lines); err != nil {
-		goto ERR_CLOSE
-	}
-
 	// create list for last lines
 	if q, err = NewBlockq(maxline); err != nil {
 		logger.Debug("NewBlockq(): %s", err)
 		goto ERR_CLOSE
 	}
 
-	r = bufio.NewReader(file)
-	for {
-		if line, err = r.ReadBytes(byte('\n')); err != nil {
+	// create TailReader and adjust to last NL
+	tr, err = NewTailReader(file)
+	if err == ErrorEmpty {
+		nlines = 0
+	} else if err != nil {
+		goto ERR_CLOSE
+	} else {
+		pos = tr.Tell()
+		lastLine, err = tr.PrevBytes('\n')
+		if err == ErrorStartOfFile {
+			nlines = 0
+		} else if err != nil {
+			goto ERR_CLOSE
+		} else if len(lastLine) != 1 { // not ended with '\n'
+			pos -= int64(len(lastLine) - 1)
+		}
+	}
+
+	// stores last lines from TailReader
+	for nlines > 0 {
+		if line, err = tr.PrevBytes('\n'); err != nil {
+			if err != ErrorStartOfFile {
+				logger.Debug("TailReader.PrevBytes(): %s", err)
+				goto ERR_CLOSE
+			}
 			break
 		}
-		if filter == nil || filter.Func(string(line[:len(line) - 1])) {
-			q.Add(string(line[:len(line) - 1]))
+		if line[0] == '\n' {
+			line = line[1:]
 		}
-		pos += int64(len(line))
+		if filter == nil || filter.Func(string(line)) {
+			q.AddHead(string(line))
+			nlines--
+		}
 	}
-	if err != io.EOF {
-		logger.Debug("File.ReadBytes(): %s", err)
+
+	if _, err = file.Seek(pos, os.SEEK_SET); err != nil {
+		logger.Debug("File.Seek(%d, SEEK_SET): %s", pos, err)
 		goto ERR_CLOSE
-	}
-	if len(line) > 0 && line[len(line) - 1] != byte('\n') {
-		pos -= int64(len(line))
 	}
 
 	tail = &TailName{

@@ -169,6 +169,9 @@ func TestTailWatcher(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to create testFile: %s", err)
 		}
+		if _, err := testFile.WriteString("test"); err != nil {
+			t.Fatalf("failed to WriteString to testFile: %s", err)
+		}
 		if err := testFile.Close(); err != nil {
 			t.Fatalf("failed to close testFile: %s", err)
 		}

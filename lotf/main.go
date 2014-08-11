@@ -1,4 +1,4 @@
-package lotf
+package main
 
 import (
 	"container/list"
@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	logger "github.com/chamaken/logger"
+	lotf "github.com/chamaken/lotf"
 )
 
 
@@ -21,7 +22,7 @@ func usage() {
 type Arg struct {
 	// <file name>:<filter name>:<nline>
 	fname string
-	filter *Filter
+	filter *lotf.Filter
 	lines uint64
 }
 
@@ -38,7 +39,7 @@ func main() {
 		args := strings.Split(s, ":")
 		arg := &Arg{args[0], nil, 0}
 		if len(args) > 1 && len(args[1]) > 0 {
-			if arg.filter, err = CreateReFilter(args[1]); err != nil {
+			if arg.filter, err = lotf.CreateReFilter(args[1]); err != nil {
 				logger.Fatal("could not create filter from: %s, error: %s", args[1], err)
 			}
 		}
@@ -50,7 +51,7 @@ func main() {
 		argl.PushBack(arg)
 	}
 
-	tw, err := NewTailWatcher()
+	tw, err := lotf.NewTailWatcher()
 	if err != nil {
 		logger.Fatal("could not create watcher: %s", err)
 	}

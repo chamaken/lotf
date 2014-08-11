@@ -119,20 +119,19 @@ func (l *Blockq) Add(value interface{}) *Element {
 		l.len--
 		return e
 	}
-
 	return nil
 }
 
 func (l *Blockq) AddHead(value interface{}) error {
-	if l.len >= l.limit {
-		return fmt.Errorf("this queue is full: %d", l.len)
-	}
-
 	e := &Element{l.head.next, l, value}
 
 	l.lock.Lock()
 	defer l.cond.Broadcast()
 	defer l.lock.Unlock()
+
+	if l.len >= l.limit {
+		return fmt.Errorf("this queue is full: %d", l.len)
+	}
 
 	l.head.next = e
 	if l.len == 0 {

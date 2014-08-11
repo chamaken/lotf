@@ -42,13 +42,8 @@ import (
 	"io"
 	"fmt"
 	"os"
+	// logger "github.com/chamaken/logger"
 )
-
-// Copyright 2009 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-//
-// refering bufio.Reader
 
 type ReadAtSeeker interface {
 	ReadAt(p []byte, off int64) (n int, err error)
@@ -69,6 +64,7 @@ const (
 	minReadBufferSize = 16
 	maxConsecutiveEmptyReads = 100
 )
+
 var ErrorStartOfFile = errors.New("lotf: no previous line")
 var ErrorNegativeRead = errors.New("lotf: reader returned negative count from Read")
 var ErrorEmpty = errors.New("lotf: empty")
@@ -108,7 +104,6 @@ func (b *TailReader) reset(buf []byte, r ReadAtSeeker) (err error) {
 	}
 
 	if b.pos == 0 {
-		b.err = ErrorEmpty
 		return ErrorEmpty
 	}
 	b.base = b.pos
@@ -167,11 +162,13 @@ func (b *TailReader) fill() {
 
 func (b *TailReader) readErr() error {
 	err := b.err
-	b.err = nil
+	if b.err != ErrorStartOfFile {
+		b.err = nil
+	}
 	return err
 }
 
-func (b *TailReader) prevBuffered() int { return b.tail }
+func (b *TailReader) PrevBuffered() int { return b.tail }
 
 func (b *TailReader) PrevSlice(delim byte) (line []byte, err error) {
 	for {
@@ -190,7 +187,7 @@ func (b *TailReader) PrevSlice(delim byte) (line []byte, err error) {
 		}
 
 		// Buffer full?
-		if n := b.prevBuffered(); n >= len(b.buf) {
+		if n := b.PrevBuffered(); n >= len(b.buf) {
 			b.tail = 0
 			line = b.buf
 			err = bufio.ErrBufferFull
