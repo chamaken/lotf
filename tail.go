@@ -252,6 +252,10 @@ func (tail *Tail) Reset() {
 	tail.current = tail.lines.head
 }
 
+func (tail *Tail) Clone() *Tail {
+	return &Tail{tail.lines, tail.lines.head}
+}
+
 type TailWatcher struct {
 	watch	*inotify.Watcher
 	tails	map[string]*TailName	// key: abs pathname
