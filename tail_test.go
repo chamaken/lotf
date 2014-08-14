@@ -406,7 +406,7 @@ func TestFilesInSameDir(t *testing.T) {
 		}
 	}
 	defer func() {
-		for i := 0; i < 10; i++ {
+		for i := 2; i < 10; i++ {
 			if err := testFiles[i].Close(); err != nil {
 				t.Fatalf("failed to close testFile: %s", err)
 			}
@@ -470,6 +470,26 @@ func TestFilesInSameDir(t *testing.T) {
 	}
 	if *(tails[1].Next()) != "TEST1" {
 			t.Fatal("expect string TEST0, but got: %s", line)
+	}
+
+	// delete file and read the rest
+	if err = testFiles[0].Close(); err != nil {
+		t.Fatalf("failed to close testFile: %s", err)
+	}
+	if err = os.Remove(testFiles[0].Name()); err != nil {
+		t.Fatalf("failed to remove testFile: %s", err)
+	}
+	if *(tails[0].Next()) != "test0" {
+		t.Fatal("expect string TEST0, but got: %s", line)
+	}
+	if err = testFiles[1].Close(); err != nil {
+		t.Fatalf("failed to close testFile: %s", err)
+	}
+	if err = os.Remove(testFiles[1].Name()); err != nil {
+		t.Fatalf("failed to remove testFile: %s", err)
+	}
+	if *(tails[1].Next()) != "test1" {
+		t.Fatal("expect string TEST0, but got: %s", line)
 	}
 }
 

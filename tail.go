@@ -197,6 +197,7 @@ func (tail *TailName) handleDisappear(errch chan<- error) {
 		}
 		r := bufio.NewReader(tail.file)
 		line, err := r.ReadBytes(byte('\n'))
+		// add line even if it does not end with LF
 		if err != nil && err != io.EOF {
 			logger.Info("File.ReadBytes(): %s", err)
 			errch <- err
