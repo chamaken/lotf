@@ -428,7 +428,7 @@ func TestFilesInSameDir(t *testing.T) {
 	}()
 
 	// watch 10 files in a same dir
-	var tails [10]*Tail
+	var tails [10]Tail
 	for i := 0; i < 10; i++ {
 		fname := filepath.Join(dir, fmt.Sprintf("TailWatcher.%d", i))
 		if tails[i], err = tw.Add(fname, 5, nil, 5); err != nil {

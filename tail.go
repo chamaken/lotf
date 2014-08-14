@@ -117,13 +117,16 @@ type TailName struct {
 	name	string		// file absname
 	file	*os.File	// watching file
 	lastp	int64		// file position last newline after 1
-	Lines	*Blockq		// stores lines with no NL
+	lines	*Blockq		// stores lines with no NL
 	filter	*Filter		// lines is not store if this returns false
+	current *Element
 }
 
-type Tail struct {
-	lines   *Blockq
-	current *Element
+type Tail interface {
+	Next() *string
+	Reset()
+	Clone() Tail
+	ChangeFilter(*Filter)
 }
 
 // subroutine of event handlers. This function reads lines from tail.lastp
@@ -149,7 +152,7 @@ func (tail *TailName) readlines(errch chan<- error) {
 			return
 		}
 		if tail.filter == nil || tail.filter.Func(string(line[:len(line) - 1])) {
-			tail.Lines.Add(string(line[:len(line) - 1]))
+			tail.lines.Add(string(line[:len(line) - 1]))
 		}
 		tail.lastp += int64(len(line))
 	}
@@ -204,9 +207,9 @@ func (tail *TailName) handleDisappear(errch chan<- error) {
 		}
 		if tail.filter == nil || tail.filter.Func(string(line[:len(line) - 1])) {
 			if line[len(line) - 1] == byte('\n') {
-				tail.Lines.Add(string(line[:len(line) - 1]))
+				tail.lines.Add(string(line[:len(line) - 1]))
 			} else {
-				tail.Lines.Add(string(line))
+				tail.lines.Add(string(line))
 			}
 		}
 		tail.lastp += int64(len(line))
@@ -238,7 +241,7 @@ func (tail *TailName) handleModify(errch chan<- error) {
 func (tail *TailName) handleParentDisappear(errch chan<- error) {
 }
 
-func (tail *Tail) Next() *string {
+func (tail *TailName) Next() *string {
 	tail.current = tail.current.WaitNext()
 	if tail.current == nil { // TailWatcher has closed
 		// XXX: what should do after Remove()
@@ -248,12 +251,23 @@ func (tail *Tail) Next() *string {
 	return &s
 }
 
-func (tail *Tail) Reset() {
+func (tail *TailName) Reset() {
 	tail.current = tail.lines.head
 }
 
-func (tail *Tail) Clone() *Tail {
-	return &Tail{tail.lines, tail.lines.head}
+func (tail *TailName) Clone() Tail {
+	return &TailName{
+		name:	 tail.name,
+		file:	 tail.file,
+		lastp:	 tail.lastp,
+		lines:	 tail.lines,
+		filter:	 tail.filter,
+		current: tail.lines.head,
+	}
+}
+
+func (tail *TailName) ChangeFilter(filter *Filter) {
+	tail.filter = filter
 }
 
 type TailWatcher struct {
@@ -306,7 +320,7 @@ func (tw *TailWatcher) follow() {
 
 func (tw *TailWatcher) Close() error {
 	for _, tail := range tw.tails {
-		tail.Lines.Done()
+		tail.lines.Done()
 		if tail.file == nil {
 			continue
 		}
@@ -318,7 +332,7 @@ func (tw *TailWatcher) Close() error {
 	return tw.watch.Close()
 }
 
-func (tw *TailWatcher) Add(pathname string, maxline int, filter *Filter, lines int) (*Tail, error) {
+func (tw *TailWatcher) Add(pathname string, maxline int, filter *Filter, lines int) (Tail, error) {
 	var tail *TailName
 	var absname string	// TailName.name
 	var dirname string	// watch dir name
@@ -395,11 +409,12 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter *Filter, lines i
 	}
 
 	tail = &TailName{
-		name:	absname,
-		file:	file,
-		lastp:	pos,
-		Lines:	q,
-		filter:	filter,
+		name:	 absname,
+		file:	 file,
+		lastp:	 pos,
+		lines:	 q,
+		filter:	 filter,
+		current: q.head,
 	}
 
 	tw.mu.Lock()
@@ -426,14 +441,14 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter *Filter, lines i
 	}
 	tw.tails[absname] = tail
 
-	return &Tail{tail.Lines, tail.Lines.head}, nil
+	return tail, nil
 	
 ERR_CLOSE:
 	file.Close()
 	return nil, err
 }
 
-func (tw *TailWatcher) Lookup(pathname string) (*Tail, error) {
+func (tw *TailWatcher) Lookup(pathname string) (Tail, error) {
 	// normalize pathname
 	absname, err := filepath.Abs(pathname)
 	if err != nil {
@@ -444,7 +459,7 @@ func (tw *TailWatcher) Lookup(pathname string) (*Tail, error) {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
 	if tail, found := tw.tails[absname]; found {
-		return &Tail{tail.Lines, tail.Lines.head}, nil
+		return tail.Clone(), nil
 	}
 	return nil, fmt.Errorf("no such a watcher: %s", absname)
 }
@@ -476,7 +491,7 @@ func (tw *TailWatcher) Remove(pathname string) error {
 			return err
 		}
 	}
-	tail.Lines.Done()
+	tail.lines.Done()
 	delete (tw.tails, absname)
 
 	if refcnt == 1 { // the last one
