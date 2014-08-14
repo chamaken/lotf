@@ -384,3 +384,92 @@ func TestTailRemoveCreate(t *testing.T) {
 		t.Fatalf("expect 7 but got: %s\n", s)
 	}
 }
+
+func TestFilesInSameDir(t *testing.T) {
+	// prepare
+	dir, err := ioutil.TempDir("", "lotf")
+	if err != nil {
+		t.Fatalf("TempDir failed: %s", err)
+	}
+	t.Logf("tmpdir: %s", dir)
+	defer os.RemoveAll(dir)
+	// create 10 files in a same dir
+	var testFiles [10]*os.File
+	for i := 0; i < 10; i++ {
+		testFiles[i], err = os.OpenFile(filepath.Join(dir, fmt.Sprintf("TailWatcher.%d", i)),
+			os.O_RDWR|os.O_CREATE, 0666)
+		if err != nil {
+			t.Fatalf("failed to create testFile: %s", err)
+		}
+		if _, err := testFiles[i].WriteString("test"); err != nil {
+			t.Fatalf("failed to WriteString to testFile: %s", err)
+		}
+	}
+	defer func() {
+		for i := 0; i < 10; i++ {
+			if err := testFiles[i].Close(); err != nil {
+				t.Fatalf("failed to close testFile: %s", err)
+			}
+		}
+	}()
+
+	// constructor
+	tw, err := NewTailWatcher()
+	if err != nil {
+		t.Fatalf("could not create TailWatcher: %s", err)
+	}
+	defer tw.Close()
+
+	// error handling
+	go func() {
+		for err := range tw.Error {
+			t.Fatalf("error received: %s", err)
+		}
+	}()
+
+	// watch 10 files in a same dir
+	var tails [10]*Tail
+	for i := 0; i < 10; i++ {
+		fname := filepath.Join(dir, fmt.Sprintf("TailWatcher.%d", i))
+		if tails[i], err = tw.Add(fname, 5, nil, 5); err != nil {
+			t.Fatalf("failed to Add to TailWatcher: %s", err)
+		}
+		if err = tw.Remove(fname); err != nil {
+			t.Fatalf("failed to Remove from TailWatcher: %s", err)
+		}
+		if tails[i], err = tw.Add(fname, 5, nil, 5); err != nil {
+			t.Fatalf("failed to Add to TailWatcher: %s", err)
+		}
+	}
+
+	if _, err = testFiles[0].WriteString("TEST0\ntest0"); err != nil {
+		t.Fatalf("write testFile failed: %s", err)
+	}
+	if _, err = testFiles[1].WriteString("TEST1\ntest1"); err != nil {
+		t.Fatalf("write testFile failed: %s", err)
+	}
+	if _, err = testFiles[2].WriteString("TEST2\ntest2"); err != nil {
+		t.Fatalf("write testFile failed: %s", err)
+	}
+	tailch := make(chan *string)
+	var line *string
+	go func() {
+		tailch <- tails[2].Next()
+	}()
+	select {
+	case line = <-tailch:
+		if *line != "TEST2" {
+			t.Fatal("expect string TEST2, but got: %s", line)
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("timed out. no line returned")
+	}
+
+	if *(tails[0].Next()) != "TEST0" {
+			t.Fatal("expect string TEST0, but got: %s", line)
+	}
+	if *(tails[1].Next()) != "TEST1" {
+			t.Fatal("expect string TEST0, but got: %s", line)
+	}
+}
+

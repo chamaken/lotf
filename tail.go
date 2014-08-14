@@ -408,7 +408,8 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter *Filter, lines i
 	if refcnt, found := tw.dirs[dirname]; ! found {
 		err = tw.watch.AddWatchFilter(dirname, INOTIFY_MASK,
 			func(e *inotify.Event) bool {
-				return e.Name == absname
+				_, found := tw.tails[e.Name]
+				return found
 			})
 		if err != nil {
 			logger.Debug("AddWatchFilter(): %s", err)
