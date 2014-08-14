@@ -374,7 +374,7 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter *Filter, lines i
 				logger.Debug("TailReader.PrevBytes(): %s", err)
 				goto ERR_CLOSE
 			}
-			break
+			nlines = 0
 		}
 		if line[0] == '\n' {
 			line = line[1:]
@@ -440,9 +440,9 @@ func (tw *TailWatcher) Lookup(pathname string) (*Tail, error) {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
 	if tail, found := tw.tails[absname]; found {
-		return &Tail{tail.Lines, nil}, nil
+		return &Tail{tail.Lines, tail.Lines.head}, nil
 	}
-	return nil, nil
+	return nil, fmt.Errorf("no such a watcher: %s", absname)
 }
 
 func (tw *TailWatcher) Remove(pathname string) error {

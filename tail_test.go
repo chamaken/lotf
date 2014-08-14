@@ -493,3 +493,55 @@ func TestFilesInSameDir(t *testing.T) {
 	}
 }
 
+func TestLookup(t *testing.T) {
+	// prepare
+	dir, err := ioutil.TempDir("", "lotf")
+	if err != nil {
+		t.Fatalf("TempDir failed: %s", err)
+	}
+	t.Logf("tmpdir: %s", dir)
+	defer os.RemoveAll(dir)
+	fname := filepath.Join(dir, "TailWatcher.testfile")
+	testFile, err := os.OpenFile(fname, os.O_RDWR|os.O_CREATE, 0666)
+	if err != nil {
+		t.Fatalf("failed to create testFile: %s", err)
+	}
+	if _, err := testFile.WriteString("1\n2\n3\n4\n5\n6"); err != nil {
+		t.Fatalf("failed to WriteString to testFile: %s", err)
+	}
+	testFile.Close()
+
+	tw, err := NewTailWatcher()
+	if err != nil {
+		t.Fatalf("could not create TailWatcher: %s", err)
+	}
+	defer tw.Close()
+
+	tail, err := tw.Add(fname, 5, nil, 5)
+	if err != nil {
+		t.Fatalf("failed to Add to TailWatcher: %s", err)
+	}
+
+	var s string
+	for i := 0; i < 5; i++ {
+		s += *tail.Next()
+	}
+	if s != "12345" {
+		t.Fatalf("expect 12345 but got: %s\n", s)
+	}
+
+	tail2, err := tw.Lookup(fname + "wrong")
+	if err == nil {
+		t.Fatalf("should not find wrong path tail")
+	}
+	if tail2, err = tw.Lookup(fname); tail == nil { // or err != nil
+		t.Fatalf("should find right path tail")
+	}
+	s = ""
+	for i := 0; i < 5; i++ {
+		s += *tail2.Next()
+	}
+	if s != "12345" {
+		t.Fatalf("expect 12345 but got: %s\n", s)
+	}
+}
