@@ -30,7 +30,6 @@ func serve(conn net.Conn, t lotf.Tail, errch chan<- error) {
 		b := []byte(fmt.Sprintf("%s\n", *s))
 		if n, err := conn.Write(b); err != nil {
 			logger.Error("write error to [%s]: %s", conn.RemoteAddr(), err)
-			errch <- err
 			break
 		} else if n != len(b) {
 			logger.Warning("could not write at once, writing: %d, written: %d", len(b), n)
