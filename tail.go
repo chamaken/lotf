@@ -407,7 +407,7 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter Filter, lines in
 			}
 			nlines = 0
 		}
-		if line[0] == '\n' {
+		if len(line) > 0 && line[0] == '\n' {
 			line = line[1:]
 		}
 		if filter == nil || filter.Filter(string(line)) {
