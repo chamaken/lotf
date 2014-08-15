@@ -1,0 +1,9 @@
+[
+    {
+	"file": "/var/log/apache/access.log",
+	"filter": "!/etc/lotfd/invert_filter",
+	"tcpaddr": "127.0.0.1:12222",
+	"udpaddr": "127.255.255.255:12222",
+	"buflines": 1024
+    }
+]
