@@ -1,6 +1,6 @@
 [
     {
-	"file": "/var/log/apache/access.log",
+	"file": "/var/log/messages",
 	"filter": "!/etc/lotfd/invert_filter",
 	"tcpaddr": "127.0.0.1:12222",
 	"udpaddr": "127.255.255.255:12222",

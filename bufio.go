@@ -1,11 +1,9 @@
-// Copyright 2009 The Go Authors. All rights reserved.
+// (C) 2014 by Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>
 // Use of this source code is gdonened by a BSD-style
-// license that can be found in the LICENSE file.
 //
-// このコードは Go package の bufio パッケージを参考にしたのでライセンスはこれに
-// 準じます。
+// このコードは Go package の bufio パッケージを参考にしました
 //
-// The license is same as golang since these code refers to bufio package in Go
+// these code refers to bufio package in Go
 // 
 // TailReader はシンプルな tail を実装するために作りました。末尾からファイルを読
 // み込みます。例えば (ReadAt と Seek を実装する) ファイルの内容が

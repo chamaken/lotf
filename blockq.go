@@ -1,12 +1,9 @@
-// Copyright 2009 The Go Authors. All rights reserved.
+// (C) 2014 by Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>
 // Use of this source code is gdonened by a BSD-style
-// license that can be found in the LICENSE file.
 //
-// このコードは Go package の container/list パッケージを参考にしたのでライセンス
-// はこれに準じます。
+// このコードは Go package の container/list パッケージを参考にしました
 //
-// The license is same as golang since these code refers to container/list
-// package in Go
+// these code refers to container/list package in Go
 // 
 // Blockq は単純で稚拙な一方向の同期リストです。初期生成時にサイズを指定して Add
 // で末尾に要素を加える時、この初期指定サイズを超えると先頭の要素を削除します。ま
