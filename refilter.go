@@ -11,33 +11,64 @@ import (
 )
 
 var filternameExp *regexp.Regexp
+var filterFactory func(string, bool) (func(string) bool, error)
 
-type Filter struct {
-        Name string
-        Func func(string) bool
+type Filter interface {
+	Filter(string) bool
+	Reload() error
+}
+
+type regexpFilter struct {
+        name string
+	invert bool
+	filter func(string)bool
 }
 
 func init() {
 	filternameExp = regexp.MustCompile("(!?)(.*)")
+	filterFactory = joinedExpFilter
 }
 
 
-func CreateReFilter(filtername string)(*Filter, error) {
+func RegexpFilter(filtername string)(Filter, error) {
 	sm := filternameExp.FindStringSubmatch(filtername)
 	if sm == nil {
 		return nil, fmt.Errorf("invalid filter name: %s", filtername)
 	}
 
-	filter, err := JoinedExpFilter(sm[2], len(sm[1]) > 0)
+	invert := len(sm[1]) > 0
+	filter, err := filterFactory(sm[2], invert)
 	if err != nil {
 		return  nil, err
 	}
 
-	return &Filter{filtername, filter}, nil
+	return &regexpFilter{
+		name: sm[2],
+		filter: filter,
+		invert: invert}, nil
 }
 
+func (f *regexpFilter) Filter(line string) bool {
+	return f.filter(line)
+}
 
-func PerExpFilter(path string, inverse bool) (func(string) bool, error) {
+func (f *regexpFilter) Reload() error {
+	filter, err := filterFactory(f.name, f.invert)
+	if err != nil {
+		return err
+	}
+	f.filter = filter
+	return nil
+}
+
+func (f *regexpFilter) String() string {
+	if f.invert {
+		return fmt.Sprintf("!%s", f.name)
+	}
+	return f.name
+}
+
+func perExpFilter(path string, inverse bool) (func(string) bool, error) {
 	var err error
 
 	refile, err := os.Open(path)
@@ -82,7 +113,7 @@ LOOP:
 }
 
 
-func JoinedExpFilter(path string, inverse bool) (func(string) bool, error) {
+func joinedExpFilter(path string, inverse bool) (func(string) bool, error) {
 	var err error
 
 	refile, err := os.Open(path)

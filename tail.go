@@ -118,15 +118,16 @@ type TailName struct {
 	file	*os.File	// watching file
 	lastp	int64		// file position last newline after 1
 	lines	*Blockq		// stores lines with no NL
-	filter	*Filter		// lines is not store if this returns false
+	filter	Filter		// lines is not store if this returns false
 	current *Element
 }
 
 type Tail interface {
+	Name() string
 	Next() *string
 	Reset()
 	Clone() Tail
-	ChangeFilter(*Filter)
+	SetFilter(Filter)
 }
 
 // subroutine of event handlers. This function reads lines from tail.lastp
@@ -151,7 +152,7 @@ func (tail *TailName) readlines(errch chan<- error) {
 			errch <- err
 			return
 		}
-		if tail.filter == nil || tail.filter.Func(string(line[:len(line) - 1])) {
+		if tail.filter == nil || tail.filter.Filter(string(line[:len(line) - 1])) {
 			tail.lines.Add(string(line[:len(line) - 1]))
 		}
 		tail.lastp += int64(len(line))
@@ -205,7 +206,7 @@ func (tail *TailName) handleDisappear(errch chan<- error) {
 			logger.Info("File.ReadBytes(): %s", err)
 			errch <- err
 		}
-		if tail.filter == nil || tail.filter.Func(string(line[:len(line) - 1])) {
+		if tail.filter == nil || tail.filter.Filter(string(line[:len(line) - 1])) {
 			if line[len(line) - 1] == byte('\n') {
 				tail.lines.Add(string(line[:len(line) - 1]))
 			} else {
@@ -241,6 +242,10 @@ func (tail *TailName) handleModify(errch chan<- error) {
 func (tail *TailName) handleParentDisappear(errch chan<- error) {
 }
 
+func (tail *TailName) Name() string {
+	return tail.name
+}
+
 func (tail *TailName) Next() *string {
 	tail.current = tail.current.WaitNext()
 	if tail.current == nil { // TailWatcher has closed
@@ -266,8 +271,15 @@ func (tail *TailName) Clone() Tail {
 	}
 }
 
-func (tail *TailName) ChangeFilter(filter *Filter) {
+func (tail *TailName) SetFilter(filter Filter) {
 	tail.filter = filter
+}
+
+func (tail *TailName) String() string {
+	if tail.filter != nil {
+		return fmt.Sprintf("%s | %s", tail.name, tail.filter)
+	}
+	return tail.name
 }
 
 type TailWatcher struct {
@@ -332,7 +344,7 @@ func (tw *TailWatcher) Close() error {
 	return tw.watch.Close()
 }
 
-func (tw *TailWatcher) Add(pathname string, maxline int, filter *Filter, lines int) (Tail, error) {
+func (tw *TailWatcher) Add(pathname string, maxline int, filter Filter, lines int) (Tail, error) {
 	var tail *TailName
 	var absname string	// TailName.name
 	var dirname string	// watch dir name
@@ -387,7 +399,8 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter *Filter, lines i
 
 	// stores last lines from TailReader
 	for nlines > 0 {
-		if line, err = tr.PrevBytes('\n'); err != nil {
+		line, err = tr.PrevBytes('\n')
+		if err != nil {
 			if err != ErrorStartOfFile {
 				logger.Debug("TailReader.PrevBytes(): %s", err)
 				goto ERR_CLOSE
@@ -397,7 +410,7 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter *Filter, lines i
 		if line[0] == '\n' {
 			line = line[1:]
 		}
-		if filter == nil || filter.Func(string(line)) {
+		if filter == nil || filter.Filter(string(line)) {
 			q.AddHead(string(line))
 			nlines--
 		}

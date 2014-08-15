@@ -113,7 +113,6 @@ func TestFileLines(t *testing.T) {
 	}
 }
 
-/*
 func TestFileLinesFilter(t *testing.T) {
 	// prepare
 	dir, err := ioutil.TempDir("", "lotf")
@@ -136,25 +135,47 @@ func TestFileLinesFilter(t *testing.T) {
 	if _, err = testFile.WriteString("\n\na\nb\n\nc\nd"); err != nil {
 		t.Fatalf("write testFile failed: %s", err)
 	}
+
+	tw, err := NewTailWatcher()
+	if err != nil {
+		t.Fatalf("could not create TailWatcher: %s", err)
+	}
+	defer tw.Close()
+
+	// error handling
+	go func() {
+		for err := range tw.Error {
+			t.Fatalf("error received: %s", err)
+		}
+	}()
+
 	// create filter
-	filter, err := CreateReFilter("testfilter")
+	filter, err := RegexpFilter("!testfilter")
 	if err != nil {
 		t.Fatalf("failed to create filter: %s", err)
+	}
+	t.Logf("testfile: %s", testFile.Name())
+	tail, err := tw.Add(testFile.Name(), 3, filter, 3)
+	if  err != nil {
+		t.Fatalf("failed to Add to TailWatcher: %s", err)
 	}
 
 	//  0 1 23 45 6 78 9
 	// "\n\na\nb\n\nc\nd"
-
-	// tail -n1
-	pos, err := FileLines(testFile, 1) // regexp "^$"
-	if err != nil {
-		t.Fatalf("should returns error")
+	s := *tail.Next()
+	if s != "a" {
+		t.Fatalf("expect `a', but got: %s", s)
 	}
-	if pos != 6 {
-		t.Fatalf("tail 1 should returns: 6, but: %d", pos)
+	s = *tail.Next()
+	if s != "b" {
+		t.Fatalf("expect `b', but got: %s", s)
+	}
+	s = *tail.Next()
+	if s != "c" {
+		t.Fatalf("expect `c', but got: %s", s)
 	}
 }
-*/
+
 func TestTailWatcher(t *testing.T) {
 	// prepare
 	dir, err := ioutil.TempDir("", "lotf")

@@ -22,7 +22,7 @@ func usage() {
 type Arg struct {
 	// <file name>:<filter name>:<nline>
 	fname string
-	filter *lotf.Filter
+	filter lotf.Filter
 	lines uint64
 }
 
@@ -39,7 +39,7 @@ func main() {
 		args := strings.Split(s, ":")
 		arg := &Arg{args[0], nil, 0}
 		if len(args) > 1 && len(args[1]) > 0 {
-			if arg.filter, err = lotf.CreateReFilter(args[1]); err != nil {
+			if arg.filter, err = lotf.RegexpFilter(args[1]); err != nil {
 				logger.Fatal("could not create filter from: %s, error: %s", args[1], err)
 			}
 		}
