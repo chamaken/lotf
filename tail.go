@@ -124,6 +124,7 @@ type TailName struct {
 
 type Tail interface {
 	Name() string
+	WaitNext() *string
 	Next() *string
 	Reset()
 	Clone() Tail
@@ -246,13 +247,23 @@ func (tail *TailName) Name() string {
 	return tail.name
 }
 
-func (tail *TailName) Next() *string {
+func (tail *TailName) WaitNext() *string {
 	tail.current = tail.current.WaitNext()
 	if tail.current == nil { // TailWatcher has closed
 		// XXX: what should do after Remove()
 		return nil
 	}
 	s := tail.current.Value.(string)
+	return &s
+}
+
+func (tail *TailName) Next() *string {
+	e := tail.current.Next()
+	if e == nil {
+		return nil
+	}
+	tail.current = e
+	s := e.Value.(string)
 	return &s
 }
 

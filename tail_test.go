@@ -162,15 +162,15 @@ func TestFileLinesFilter(t *testing.T) {
 
 	//  0 1 23 45 6 78 9
 	// "\n\na\nb\n\nc\nd"
-	s := *tail.Next()
+	s := *tail.WaitNext()
 	if s != "a" {
 		t.Fatalf("expect `a', but got: %s", s)
 	}
-	s = *tail.Next()
+	s = *tail.WaitNext()
 	if s != "b" {
 		t.Fatalf("expect `b', but got: %s", s)
 	}
-	s = *tail.Next()
+	s = *tail.WaitNext()
 	if s != "c" {
 		t.Fatalf("expect `c', but got: %s", s)
 	}
@@ -279,7 +279,7 @@ func TestTailAdd(t *testing.T) {
 
 	go func() {
 		for {
-			p := tail.Next()
+			p := tail.WaitNext()
 			if p == nil { break }
 			tailch <- p
 		}
@@ -371,7 +371,7 @@ func TestTailRemoveCreate(t *testing.T) {
 
 	var s string
 	for i := 0; i < 5; i++ {
-		s += *tail.Next()
+		s += *tail.WaitNext()
 	}
 	if s != "bcdef" {
 		t.Fatalf("expect bcdef but got: %s\n", s)
@@ -392,7 +392,7 @@ func TestTailRemoveCreate(t *testing.T) {
 	defer testFile.Close()
 
 	for i := 0; i < 6; i++ {
-		s += *tail.Next()
+		s += *tail.WaitNext()
 	}
 	if s != "bcdef123456" {
 		t.Fatalf("expect bcdef123456 but got: %s\n", s)
@@ -401,7 +401,7 @@ func TestTailRemoveCreate(t *testing.T) {
 	if _, err = testFile.WriteString("7\n"); err != nil {
 		t.Fatalf("write testFile failed: %s", err)
 	}
-	if *tail.Next() != "7" {
+	if *tail.WaitNext() != "7" {
 		t.Fatalf("expect 7 but got: %s\n", s)
 	}
 }
@@ -475,7 +475,7 @@ func TestFilesInSameDir(t *testing.T) {
 	tailch := make(chan *string)
 	var line *string
 	go func() {
-		tailch <- tails[2].Next()
+		tailch <- tails[2].WaitNext()
 	}()
 	select {
 	case line = <-tailch:
@@ -486,10 +486,10 @@ func TestFilesInSameDir(t *testing.T) {
 		t.Fatal("timed out. no line returned")
 	}
 
-	if *(tails[0].Next()) != "TEST0" {
+	if *(tails[0].WaitNext()) != "TEST0" {
 			t.Fatal("expect string TEST0, but got: %s", line)
 	}
-	if *(tails[1].Next()) != "TEST1" {
+	if *(tails[1].WaitNext()) != "TEST1" {
 			t.Fatal("expect string TEST0, but got: %s", line)
 	}
 
@@ -500,7 +500,7 @@ func TestFilesInSameDir(t *testing.T) {
 	if err = os.Remove(testFiles[0].Name()); err != nil {
 		t.Fatalf("failed to remove testFile: %s", err)
 	}
-	if *(tails[0].Next()) != "test0" {
+	if *(tails[0].WaitNext()) != "test0" {
 		t.Fatal("expect string TEST0, but got: %s", line)
 	}
 	if err = testFiles[1].Close(); err != nil {
@@ -509,7 +509,7 @@ func TestFilesInSameDir(t *testing.T) {
 	if err = os.Remove(testFiles[1].Name()); err != nil {
 		t.Fatalf("failed to remove testFile: %s", err)
 	}
-	if *(tails[1].Next()) != "test1" {
+	if *(tails[1].WaitNext()) != "test1" {
 		t.Fatal("expect string TEST0, but got: %s", line)
 	}
 }
@@ -545,7 +545,7 @@ func TestLookup(t *testing.T) {
 
 	var s string
 	for i := 0; i < 5; i++ {
-		s += *tail.Next()
+		s += *tail.WaitNext()
 	}
 	if s != "12345" {
 		t.Fatalf("expect 12345 but got: %s\n", s)
@@ -560,7 +560,7 @@ func TestLookup(t *testing.T) {
 	}
 	s = ""
 	for i := 0; i < 5; i++ {
-		s += *tail2.Next()
+		s += *tail2.WaitNext()
 	}
 	if s != "12345" {
 		t.Fatalf("expect 12345 but got: %s\n", s)

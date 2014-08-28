@@ -72,7 +72,7 @@ func main() {
 			if err != nil {
 				logger.Fatal("could not add %s to watcher: %s", arg.fname, err)
 			}
-			for s := tail.Next(); s != nil; s = tail.Next() {
+			for s := tail.WaitNext(); s != nil; s = tail.WaitNext() {
 				ch <- *s
 			}
 		}()

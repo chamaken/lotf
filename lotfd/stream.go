@@ -26,7 +26,7 @@ func NewTCPServer(t lotf.Tail, addr *net.TCPAddr)(*StreamServer, error) {
 
 func serve(conn net.Conn, t lotf.Tail, errch chan<- error) {
 	defer conn.Close()
-	for s := t.Next(); s != nil; s = t.Next() {
+	for s := t.WaitNext(); s != nil; s = t.WaitNext() {
 		b := []byte(fmt.Sprintf("%s\n", *s))
 		if n, err := conn.Write(b); err != nil {
 			logger.Error("write error to [%s]: %s", conn.RemoteAddr(), err)
