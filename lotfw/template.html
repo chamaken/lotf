@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="lotf on web">
+    <meta name="author" content="Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>">
+    <title>tail --follow=name | grep on web</title>
+    <!-- Le styles -->
+    <link href="https://code.jquery.com/ui/1.11.1/themes/black-tie/jquery-ui.css" rel="stylesheet">
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css" rel="stylesheet">
+  </head>
+
+  <body>
+    <div id="error-message" style="display: none"></div>
+
+    <div class="container">
+      <div class="page-header">
+	<h3><span class="label label-primary">{{ .Title }}</span></h3>
+      </div>
+
+      <div class="row">
+	<div class=".col-md-12">
+	  <!-- table class="table table-striped" id="lines-table" -->
+	  <table class="table" id="lines-table">
+	    <tbody><tr/></tbody>
+	  </table>
+	</div>
+      </div>
+
+      <div class="page-footer">
+      </div>
+    </div><!-- container -->
+
+    <!-- Le javascript - Placed at the end of the document so the pages load faster -->
+    <script src="https://code.jquery.com/jquery-1.11.1.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.11.1/jquery-ui.min.js"></script>
+    <script>
+    MAXLINE = 100 // XXX: magic number
+
+    function show_error(msg) {
+	$("#error-message").dialog({
+	    title: "error",
+            modal: true,
+	    text: msg
+	})
+	$("#error-message").text(msg)
+    }
+
+    /* <rsyslog coloring sample>
+     *
+     * requires %syslogseverity-text at 3rd field splitted by space
+     * i.e. rsyslog configuration has like:
+     *   $template TraditionalFromhostFileFormatWithLevel,"%TIMESTAMP% %fromhost% %syslogseverity-text% ...
+     */
+    severities = {
+	/* syslog level        | bootstrap alert
+         *-------------------- + ---------------
+	 * emerg, alert, crit  | danger
+	 * err, warning        | warning
+	 * notice              | info
+	 * info, debug         | none
+	 */
+	"emerg":   "alert alert-danger",
+	"alert":   "alert alert-danger",
+	"crit":    "alert alert-danger",
+	"err":     "alert alert-warning",
+	"error":   "alert alert-warning",
+	"warn":    "alert alert-warning",
+	"warning": "alert alert-warning",
+	"notice":  "alert alert-info",
+	"info":    "",
+	"debug":   ""
+    }
+    function alert_class(line) {
+	ssv = line.split(/ +/) // white space separated
+	if (ssv.length < 5) {  // month day time host severity
+	    return ""
+	}
+	c = severities[ssv[4]]
+	if (c) {
+	    return c
+	}
+	return ""
+    }
+    /* </rsyslog coloring sample> */
+
+    function mark(e) {
+	i = e.children("span.glyphicon")
+	if (i.length > 0) {
+	    i.remove()
+	} else {
+	    e.prepend($("<span/>", {
+		"class": "glyphicon glyphicon-ok",
+		"html": "&nbsp; "
+	    }))
+	}
+    }
+
+    function trline(line) {
+	return $("<tr/>")
+	    .append($("<td/>", {
+		"class": alert_class(line),
+		"text": line
+	    }).click(function() { mark($(this)) }))
+    }
+
+    function process_lines() {
+	$.ajax({
+	    timeout: 5000,
+	    url: "{{ .JsonPath }}",
+	    success: function(response, textStatus, jqXHR) {
+		error = response["Error"]
+		if (error.length > 0) {
+		    show_error(error)
+		    return
+		}
+		lines = response["Lines"]
+		startpos = lines.lengh > MAXLINE ? lines.length - MAXLINE : 0
+		for (i = startpos; i < lines.length; i++) {
+		    $("table#lines-table > tbody > tr:first-child").before(trline(lines[i]))		
+		}
+		for (j = $("table#lines-table > tbody").children("tr").length; j >= MAXLINE; j--) {
+                    $("table#lines-table > tbody > tr:last-child").remove()
+		}
+	    },
+	    error: function(jqXHR, textStatus, errorThrown) {
+		show_error(textStatus + ": " + errorThrown)
+	    },
+	    complete: function() {
+	    }
+	})
+    }
+
+    $(document).ready(function() {
+	process_lines()
+        window.setInterval(process_lines, {{ .Expire }})
+    })
+    </script>
+  </body>
+</html>

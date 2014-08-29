@@ -1,0 +1,28 @@
+{
+    "address":	"0.0.0.0:8088",
+    "root":	"/lotf",
+    "template": "template.html",
+    "duration": 10,
+    "lotfs": [
+        {
+	    "name":	"apache/access",
+            "file":     "/var/log/apache2/access.log",
+ 	    "filter":	"etc/http_filter",
+	    "buflines":	100,
+	    "lastlines":100
+	},
+	{
+	    "name":	"apache/error",
+            "file":     "/var/log/apache2/error.log",
+	    "buflines":	100,
+	    "lastlines":100
+	},
+        {
+	    "name":	"syslog",
+	    "file":     "/var/log/syslog",
+	    "filter":   "!etc/invert_syslog_filter",
+	    "buflines":	100,
+	    "lastlines":100
+	}
+    ]
+}
