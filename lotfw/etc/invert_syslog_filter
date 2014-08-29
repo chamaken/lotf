@@ -1,0 +1,2 @@
+/USR/SBIN/CRON[^\(]*\(root
+postfix/(cleanup|qmgr|pickup)
