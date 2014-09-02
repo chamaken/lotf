@@ -35,7 +35,7 @@ func NewUnixgramServer(t lotf.Tail, raddr *net.UnixAddr) (*DgramServer, error) {
 // loop will stop by Tail.Done()
 func (svr *DgramServer) Run(errch chan<- error) {
 	for s := svr.tail.WaitNext(); s != nil; s = svr.tail.WaitNext() {
-		b := []byte(fmt.Sprintf("%s\n", s))
+		b := []byte(fmt.Sprintf("%s\n", *s))
 		if n, err := svr.conn.Write(b); err != nil {
 			logger.Error("connection write: %s", err)
 			errch <- err
