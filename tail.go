@@ -366,7 +366,6 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter Filter, lines in
 	var tr *TailReader
 	var line, lastLine []byte
 	var err error
-	nlines := maxline
 
 	// normalize pathname
 	if absname, err = filepath.Abs(pathname); err != nil {
@@ -393,14 +392,14 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter Filter, lines in
 	// create TailReader and adjust to last NL
 	tr, err = NewTailReader(file)
 	if err == ErrorEmpty {
-		nlines = 0
+		lines = 0
 	} else if err != nil {
 		goto ERR_CLOSE
 	} else {
 		pos = tr.Tell()
 		lastLine, err = tr.PrevBytes('\n')
 		if err == ErrorStartOfFile {
-			nlines = 0
+			lines = 0
 		} else if err != nil {
 			goto ERR_CLOSE
 		} else if len(lastLine) != 1 { // not ended with '\n'
@@ -409,21 +408,21 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter Filter, lines in
 	}
 
 	// stores last lines from TailReader
-	for nlines > 0 {
+	for lines > 0 {
 		line, err = tr.PrevBytes('\n')
 		if err != nil {
 			if err != ErrorStartOfFile {
 				logger.Debug("TailReader.PrevBytes(): %s", err)
 				goto ERR_CLOSE
 			}
-			nlines = 0
+			lines = 0
 		}
 		if len(line) > 0 && line[0] == '\n' {
 			line = line[1:]
 		}
 		if filter == nil || filter.Filter(string(line)) {
 			q.AddHead(string(line))
-			nlines--
+			lines--
 		}
 	}
 
