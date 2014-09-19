@@ -4,13 +4,13 @@ import (
 	"container/list"
 	"encoding/json"
 	"fmt"
+	"github.com/chamaken/logger"
+	"github.com/chamaken/lotf"
 	"html/template"
 	"net"
 	"net/http"
 	"strings"
 	"time"
-	"github.com/chamaken/lotf"
-	"github.com/chamaken/logger"
 )
 
 type TemplateRC struct {
@@ -20,8 +20,8 @@ type TemplateRC struct {
 }
 
 type JsonRC struct {
-	Lines  []string
-	Error  string
+	Lines []string
+	Error string
 }
 
 const (
@@ -87,14 +87,14 @@ func handleFirst(w http.ResponseWriter, r *http.Request, tail lotf.Tail) {
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name: COOKIE_NAME,
+		Name:  COOKIE_NAME,
 		Value: uuid,
-		Path: cfg.root,
+		Path:  cfg.root,
 	})
 	rc := &TemplateRC{
-		Title: fmt.Sprintf("%s", tail),
+		Title:    fmt.Sprintf("%s", tail),
 		JsonPath: r.URL.Path + NEXT_SUFFIX,
-		Expire: cfg.duration * 1000 / 2,
+		Expire:   cfg.duration * 1000 / 2,
 	}
 	if err := templates.ExecuteTemplate(w, cfg.template, rc); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -106,7 +106,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	var found bool
 	rpath := r.URL.Path[len(cfg.root):]
 	if strings.HasSuffix(rpath, NEXT_SUFFIX) {
-		key := rpath[:len(rpath) - len(NEXT_SUFFIX)]
+		key := rpath[:len(rpath)-len(NEXT_SUFFIX)]
 		if tail, found = tails[key]; !found {
 			http.NotFound(w, r)
 			return
@@ -135,7 +135,7 @@ func main() {
 	if err != nil {
 		logger.Fatal("NewTailWatcher: %s", err)
 	}
-	for k, v := range(cfg.lotfs) {
+	for k, v := range cfg.lotfs {
 		logger.Notice("creating tail: %s", v.filename)
 		t, err := watcher.Add(v.filename, v.buflines, v.filter, v.lastlines)
 		if err != nil {

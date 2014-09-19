@@ -3,36 +3,36 @@ package main
 import (
 	"errors"
 	"fmt"
+	"github.com/chamaken/logger"
+	"github.com/chamaken/lotf"
 	"os"
 	"os/signal"
 	"syscall"
-	"github.com/chamaken/lotf"
-	"github.com/chamaken/logger"
 )
 
 type resource struct {
-	tail lotf.Tail
+	tail   lotf.Tail
 	filter lotf.Filter
-	ssvr *StreamServer
-	usvr *DgramServer
+	ssvr   *StreamServer
+	usvr   *DgramServer
 }
 
 func sighandler(watcher *lotf.TailWatcher, rcs []resource, errch chan<- error) {
 	sigch := make(chan os.Signal, 1)
 	signal.Notify(sigch)
 
-	for s := range(sigch) {
-		switch (s) {
+	for s := range sigch {
+		switch s {
 		case syscall.SIGUSR1:
 			// reload all filter
-			for _, r:= range rcs {
+			for _, r := range rcs {
 				if r.filter != nil {
 					if err := r.filter.Reload(); err != nil {
 						errch <- err
 					}
 				}
 			}
-			
+
 		case syscall.SIGINT:
 			fallthrough
 		case syscall.SIGTERM:
@@ -78,7 +78,7 @@ func main() {
 
 	errch := make(chan error, 512) // XXX: magic number
 	rcs := make([]resource, len(flags))
-	for i, rc := range(flags) {
+	for i, rc := range flags {
 		if rc.tcpaddr == nil && rc.udpaddr == nil {
 			fmt.Fprintf(os.Stderr, "error - no inet4 server specified\n")
 			os.Exit(1)
@@ -112,7 +112,7 @@ func main() {
 	go sighandler(watcher, rcs, errch)
 
 	// daemonize?
-	for err := range(errch) {
+	for err := range errch {
 		logger.Error("%s", err)
 		break
 	}

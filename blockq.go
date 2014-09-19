@@ -4,7 +4,7 @@
 // このコードは Go package の container/list パッケージを参考にしました
 //
 // these code refers to container/list package in Go
-// 
+//
 // Blockq は単純で稚拙な一方向の同期リストです。初期生成時にサイズを指定して Add
 // で末尾に要素を加える時、この初期指定サイズを超えると先頭の要素を削除します。ま
 // た AddHead で先頭に要素を追加するにあたっては初期サイズを超えるとエラーを返し
@@ -22,27 +22,26 @@
 package lotf
 
 import (
-	"sync"
 	"fmt"
+	"sync"
 )
 
 // Element is an element in the linked list.
 type Element struct {
-	next *Element
-	list *Blockq
+	next  *Element
+	list  *Blockq
 	Value interface{}
 }
 
 // Blockq represents a push only list.
 type Blockq struct {
 	head, tail *Element
-	len	int
-	limit	int
-	done	bool
-	lock	*sync.RWMutex
-	cond	*sync.Cond
+	len        int
+	limit      int
+	done       bool
+	lock       *sync.RWMutex
+	cond       *sync.Cond
 }
-
 
 // New returns an initialized list.
 func NewBlockq(size int) (*Blockq, error) {
@@ -64,7 +63,6 @@ func NewBlockq(size int) (*Blockq, error) {
 	return l, nil
 }
 
-
 func (l *Blockq) Head() *Element { return l.head.next }
 func (l *Blockq) Tail() *Element {
 	l.lock.RLock()
@@ -77,12 +75,10 @@ func (l *Blockq) Tail() *Element {
 }
 func (e *Element) Next() *Element { return e.next }
 
-
 // blocking
 func (l *Blockq) WaitHead() *Element {
 	return l.head.WaitNext()
 }
-
 
 func (e *Element) WaitNext() *Element {
 	e.list.lock.Lock()
@@ -90,14 +86,13 @@ func (e *Element) WaitNext() *Element {
 	// defer func() { e.list.done = false }()
 
 	w := e.next
-	for w == nil && ! e.list.done {
+	for w == nil && !e.list.done {
 		e.list.cond.Wait()
 		w = e.next
 	}
 
 	return w
 }
-
 
 // add the value at the tail and returns head Element if the limit exceeds.
 func (l *Blockq) Add(value interface{}) *Element {
@@ -137,7 +132,6 @@ func (l *Blockq) AddHead(value interface{}) error {
 	l.len++
 	return nil
 }
-
 
 func (l *Blockq) Done() {
 	l.lock.Lock() // barrier?

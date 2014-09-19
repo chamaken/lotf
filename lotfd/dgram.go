@@ -2,18 +2,16 @@ package main
 
 import (
 	"fmt"
+	"github.com/chamaken/logger"
+	"github.com/chamaken/lotf"
 	"io"
 	"net"
-	"github.com/chamaken/lotf"
-	"github.com/chamaken/logger"
 )
-
 
 type DgramServer struct {
 	tail lotf.Tail
 	conn io.WriteCloser
 }
-
 
 func NewUDPServer(t lotf.Tail, raddr *net.UDPAddr) (*DgramServer, error) {
 	conn, err := net.DialUDP("udp4", nil, raddr)
@@ -22,7 +20,6 @@ func NewUDPServer(t lotf.Tail, raddr *net.UDPAddr) (*DgramServer, error) {
 	}
 	return &DgramServer{t, io.WriteCloser(conn)}, nil
 }
-
 
 func NewUnixgramServer(t lotf.Tail, raddr *net.UnixAddr) (*DgramServer, error) {
 	conn, err := net.DialUnix("unixgram", nil, raddr)
@@ -45,7 +42,6 @@ func (svr *DgramServer) Run(errch chan<- error) {
 	}
 	logger.Info("exit Run gracefully")
 }
-
 
 func (svr *DgramServer) Done() error {
 	EOM := []byte{}

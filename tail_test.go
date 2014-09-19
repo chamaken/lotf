@@ -75,7 +75,6 @@ func TestFileLines(t *testing.T) {
 		t.Fatalf("tail 10 should return: 0, but: %d", pos)
 	}
 
-
 	// 4 empty lines, ended with no newline spaces
 	if err = testFile.Truncate(0); err != nil {
 		t.Fatal("truncate testFile failed: %s", err)
@@ -101,7 +100,7 @@ func TestFileLines(t *testing.T) {
 	if _, err = testFile.Seek(0, os.SEEK_SET); err != nil {
 		t.Fatalf("seek testFile failed: %s", err)
 	}
-	s := strings.Repeat("a", BUFSIZ - 1) + "\n\n\n\n"
+	s := strings.Repeat("a", BUFSIZ-1) + "\n\n\n\n"
 	if _, err = testFile.WriteString(s); err != nil {
 		t.Fatalf("write testFile failed: %s", err)
 	}
@@ -156,7 +155,7 @@ func TestFileLinesFilter(t *testing.T) {
 	}
 	t.Logf("testfile: %s", testFile.Name())
 	tail, err := tw.Add(testFile.Name(), 3, filter, 3)
-	if  err != nil {
+	if err != nil {
 		t.Fatalf("failed to Add to TailWatcher: %s", err)
 	}
 
@@ -269,7 +268,7 @@ func TestTailAdd(t *testing.T) {
 
 	// Add and Remove one file
 	tail, err := tw.Add(filepath.Join(dir, "TailWatcher.1"), 5, nil, 5)
-	if  err != nil {
+	if err != nil {
 		t.Fatalf("failed to Add to TailWatcher: %s", err)
 	}
 
@@ -280,7 +279,9 @@ func TestTailAdd(t *testing.T) {
 	go func() {
 		for {
 			p := tail.WaitNext()
-			if p == nil { break }
+			if p == nil {
+				break
+			}
 			tailch <- p
 		}
 		done <- true
@@ -487,10 +488,10 @@ func TestFilesInSameDir(t *testing.T) {
 	}
 
 	if *(tails[0].WaitNext()) != "TEST0" {
-			t.Fatal("expect string TEST0, but got: %s", line)
+		t.Fatal("expect string TEST0, but got: %s", line)
 	}
 	if *(tails[1].WaitNext()) != "TEST1" {
-			t.Fatal("expect string TEST0, but got: %s", line)
+		t.Fatal("expect string TEST0, but got: %s", line)
 	}
 
 	// delete file and read the rest

@@ -1,20 +1,20 @@
 package lotf
 
 import (
-	"bytes"
-	"io"
 	"bufio"
+	"bytes"
 	"fmt"
-	"os"
-	"syscall"
-	"path/filepath"
-	"sync"
 	inotify "github.com/chamaken/inotify"
 	logger "github.com/chamaken/logger"
+	"io"
+	"os"
+	"path/filepath"
+	"sync"
+	"syscall"
 )
 
 const (
-	BUFSIZ = 8192
+	BUFSIZ       = 8192
 	INOTIFY_MASK = inotify.IN_DELETE_SELF | inotify.IN_MOVE_SELF | inotify.IN_CREATE | inotify.IN_MOVE | inotify.IN_DELETE | inotify.IN_MODIFY
 )
 
@@ -34,7 +34,6 @@ const (
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 // FileLines sets the offset to nLines lines from the last. This does not means
 // EOF if the file is ended with no newline.
 func FileLines(file *os.File, nLines int) (int64, error) {
@@ -47,7 +46,7 @@ func FileLines(file *os.File, nLines int) (int64, error) {
 		logger.Debug("File.Stat(): %s", err)
 		return -1, err
 	}
-	if fi.Sys().(*syscall.Stat_t).Mode & syscall.S_IFMT != syscall.S_IFREG {
+	if fi.Sys().(*syscall.Stat_t).Mode&syscall.S_IFMT != syscall.S_IFREG {
 		return -1, fmt.Errorf("support regular file only")
 	}
 
@@ -110,15 +109,15 @@ LOOP:
 		}
 	}
 
-	return file.Seek(pos + int64(nlPos + 1), os.SEEK_SET)
+	return file.Seek(pos+int64(nlPos+1), os.SEEK_SET)
 }
 
 type TailName struct {
-	name	string		// file absname
-	file	*os.File	// watching file
-	lastp	int64		// file position last newline after 1
-	lines	*Blockq		// stores lines with no NL
-	filter	Filter		// lines is not store if this returns false
+	name    string   // file absname
+	file    *os.File // watching file
+	lastp   int64    // file position last newline after 1
+	lines   *Blockq  // stores lines with no NL
+	filter  Filter   // lines is not store if this returns false
 	current *Element
 }
 
@@ -153,13 +152,12 @@ func (tail *TailName) readlines(errch chan<- error) {
 			errch <- err
 			return
 		}
-		if tail.filter == nil || tail.filter.Filter(string(line[:len(line) - 1])) {
-			tail.lines.Add(string(line[:len(line) - 1]))
+		if tail.filter == nil || tail.filter.Filter(string(line[:len(line)-1])) {
+			tail.lines.Add(string(line[:len(line)-1]))
 		}
 		tail.lastp += int64(len(line))
 	}
 }
-
 
 // IN_CREATE event handler. This function opens file named tail.name and reads lines.
 // tail.file should be nil if this function is called.
@@ -207,9 +205,9 @@ func (tail *TailName) handleDisappear(errch chan<- error) {
 			logger.Info("File.ReadBytes(): %s", err)
 			errch <- err
 		}
-		if tail.filter == nil || tail.filter.Filter(string(line[:len(line) - 1])) {
-			if line[len(line) - 1] == byte('\n') {
-				tail.lines.Add(string(line[:len(line) - 1]))
+		if tail.filter == nil || tail.filter.Filter(string(line[:len(line)-1])) {
+			if line[len(line)-1] == byte('\n') {
+				tail.lines.Add(string(line[:len(line)-1]))
 			} else {
 				tail.lines.Add(string(line))
 			}
@@ -273,11 +271,11 @@ func (tail *TailName) Reset() {
 
 func (tail *TailName) Clone() Tail {
 	return &TailName{
-		name:	 tail.name,
-		file:	 tail.file,
-		lastp:	 tail.lastp,
-		lines:	 tail.lines,
-		filter:	 tail.filter,
+		name:    tail.name,
+		file:    tail.file,
+		lastp:   tail.lastp,
+		lines:   tail.lines,
+		filter:  tail.filter,
 		current: tail.lines.head,
 	}
 }
@@ -294,11 +292,11 @@ func (tail *TailName) String() string {
 }
 
 type TailWatcher struct {
-	watch	*inotify.Watcher
-	tails	map[string]*TailName	// key: abs pathname
-	dirs	map[string]int		// key: dirname, value: refcount
-	mu	sync.Mutex		// to sync tails map
-	Error	<-chan error
+	watch *inotify.Watcher
+	tails map[string]*TailName // key: abs pathname
+	dirs  map[string]int       // key: dirname, value: refcount
+	mu    sync.Mutex           // to sync tails map
+	Error <-chan error
 }
 
 // TailWatcher constructor
@@ -320,22 +318,21 @@ func NewTailWatcher() (*TailWatcher, error) {
 	return tw, nil
 }
 
-
 // Watcher event dispatcher
 func (tw *TailWatcher) follow() {
-	for ev := range(tw.watch.Event) {
+	for ev := range tw.watch.Event {
 		tail, found := tw.tails[ev.Name]
 		if !found {
 			continue
 		}
 		switch {
-		case ev.Mask & inotify.IN_CREATE != 0:
+		case ev.Mask&inotify.IN_CREATE != 0:
 			tail.handleCreate(tw.watch.Error)
-		case ev.Mask & (inotify.IN_DELETE | inotify.IN_MOVE) != 0:
+		case ev.Mask&(inotify.IN_DELETE|inotify.IN_MOVE) != 0:
 			tail.handleDisappear(tw.watch.Error)
-		case ev.Mask & inotify.IN_MODIFY != 0:
+		case ev.Mask&inotify.IN_MODIFY != 0:
 			tail.handleModify(tw.watch.Error)
-		case ev.Mask & (inotify.IN_DELETE_SELF | inotify.IN_MOVE_SELF) != 0:
+		case ev.Mask&(inotify.IN_DELETE_SELF|inotify.IN_MOVE_SELF) != 0:
 			tail.handleParentDisappear(tw.watch.Error)
 		}
 	}
@@ -357,11 +354,11 @@ func (tw *TailWatcher) Close() error {
 
 func (tw *TailWatcher) Add(pathname string, maxline int, filter Filter, lines int) (Tail, error) {
 	var tail *TailName
-	var absname string	// TailName.name
-	var dirname string	// watch dir name
-	var file *os.File	// TailName.file
-	var pos int64		// TailName.lastp
-	var q *Blockq		// TailName.Lines
+	var absname string // TailName.name
+	var dirname string // watch dir name
+	var file *os.File  // TailName.file
+	var pos int64      // TailName.lastp
+	var q *Blockq      // TailName.Lines
 
 	var tr *TailReader
 	var line, lastLine []byte
@@ -432,11 +429,11 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter Filter, lines in
 	}
 
 	tail = &TailName{
-		name:	 absname,
-		file:	 file,
-		lastp:	 pos,
-		lines:	 q,
-		filter:	 filter,
+		name:    absname,
+		file:    file,
+		lastp:   pos,
+		lines:   q,
+		filter:  filter,
 		current: q.head,
 	}
 
@@ -448,7 +445,7 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter Filter, lines in
 		err = fmt.Errorf("already watching: %s", absname)
 		goto ERR_CLOSE
 	}
-	if refcnt, found := tw.dirs[dirname]; ! found {
+	if refcnt, found := tw.dirs[dirname]; !found {
 		err = tw.watch.AddWatchFilter(dirname, INOTIFY_MASK,
 			func(e *inotify.Event) bool {
 				_, found := tw.tails[e.Name]
@@ -465,7 +462,7 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter Filter, lines in
 	tw.tails[absname] = tail
 
 	return tail, nil
-	
+
 ERR_CLOSE:
 	file.Close()
 	return nil, err
@@ -515,14 +512,14 @@ func (tw *TailWatcher) Remove(pathname string) error {
 		}
 	}
 	tail.lines.Done()
-	delete (tw.tails, absname)
+	delete(tw.tails, absname)
 
 	if refcnt == 1 { // the last one
 		if err := tw.watch.RemoveWatch(dirname); err != nil {
 			logger.Debug("inotify.RemoveWatch(): %s", err)
 			return err
 		}
-		delete (tw.dirs, dirname)
+		delete(tw.dirs, dirname)
 		return nil
 	} else {
 		tw.dirs[dirname] = refcnt - 1

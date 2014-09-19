@@ -88,7 +88,7 @@ func TestBlock(t *testing.T) {
 	}
 	time.Sleep(1 * time.Second)
 	select {
-	case e = <- ch:
+	case e = <-ch:
 	default:
 	}
 	if e != nil {
@@ -96,7 +96,7 @@ func TestBlock(t *testing.T) {
 	}
 	q.Add(1)
 	for i := 0; i < 32; i++ {
-		e = <- ch
+		e = <-ch
 		if e.Value.(int) != 1 {
 			t.Fatalf("receive invalid value: %v", e.Value)
 		}
@@ -111,7 +111,7 @@ func TestBlock(t *testing.T) {
 	}
 	time.Sleep(1 * time.Second)
 	select {
-	case e2 = <- ch:
+	case e2 = <-ch:
 	default:
 	}
 	if e2 != nil {
@@ -119,7 +119,7 @@ func TestBlock(t *testing.T) {
 	}
 	q.Add(2)
 	for i := 0; i < 32; i++ {
-		e2 = <- ch
+		e2 = <-ch
 		if e2.Value.(int) != 2 {
 			t.Fatalf("receive invalid value: %v", e2.Value)
 		}
@@ -135,7 +135,7 @@ func TestBlock(t *testing.T) {
 	q.Done()
 
 	for i := 0; i < 32; i++ {
-		e3 = <- ch
+		e3 = <-ch
 		if e3 != nil {
 			t.Fatalf("receive non-nil value: %v", e3.Value)
 		}
