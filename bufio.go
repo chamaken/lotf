@@ -4,7 +4,7 @@
 // このコードは Go package の bufio パッケージを参考にしました
 //
 // these code refers to bufio package in Go
-// 
+//
 // TailReader はシンプルな tail を実装するために作りました。末尾からファイルを読
 // み込みます。例えば (ReadAt と Seek を実装する) ファイルの内容が
 //
@@ -37,8 +37,8 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	"io"
 	"fmt"
+	"io"
 	"os"
 	// logger "github.com/chamaken/logger"
 )
@@ -49,17 +49,17 @@ type ReadAtSeeker interface {
 }
 
 type TailReader struct {
-	buf          []byte
-	rd           io.ReaderAt
-	tail         int
-	err          error
-	pos          int64
-	base         int64
+	buf  []byte
+	rd   io.ReaderAt
+	tail int
+	err  error
+	pos  int64
+	base int64
 }
 
 const (
-	defaultBufSize = 4096
-	minReadBufferSize = 16
+	defaultBufSize           = 4096
+	minReadBufferSize        = 16
 	maxConsecutiveEmptyReads = 100
 )
 
@@ -149,7 +149,7 @@ func (b *TailReader) fill() {
 			}
 		}
 		if n < head {
-			copy(b.buf[head - n:head], b.buf[:n])
+			copy(b.buf[head-n:head], b.buf[:n])
 		}
 		if n > 0 {
 			return

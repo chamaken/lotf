@@ -1,9 +1,9 @@
 package main
 
 import (
-	"errors"
 	"container/list"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -25,6 +25,7 @@ func newUUID() (string, error) {
 }
 
 type opcode int
+
 const (
 	GET opcode = iota
 	ADD
@@ -32,7 +33,7 @@ const (
 )
 
 type command struct {
-	code opcode
+	code  opcode
 	param interface{}
 }
 
@@ -43,28 +44,28 @@ type retval struct {
 
 type TickMap struct {
 	duration time.Duration
-	fifo *list.List
-	vals map[string]*list.Element
-	cmd chan *command
-	rc chan *retval
-	done bool
+	fifo     *list.List
+	vals     map[string]*list.Element
+	cmd      chan *command
+	rc       chan *retval
+	done     bool
 }
 
 // value for TickMap.fifo and TickMap.vals
-type element struct { 
-	key string
+type element struct {
+	key    string
 	expire int64
-	val interface{}
+	val    interface{}
 }
 
 func NewTickMap(d time.Duration) *TickMap {
 	tm := &TickMap{
-		fifo: list.New(),
-		cmd: make(chan *command),
+		fifo:     list.New(),
+		cmd:      make(chan *command),
 		duration: d,
-		vals: make(map[string]*list.Element),
-		rc: make(chan *retval),
-		done: false,
+		vals:     make(map[string]*list.Element),
+		rc:       make(chan *retval),
+		done:     false,
 	}
 	go tm.run()
 
@@ -75,7 +76,9 @@ func (tm *TickMap) expire() {
 	now := time.Now().Unix()
 	for e := tm.fifo.Front(); e != nil; e = e.Next() {
 		v := e.Value.(*element)
-		if v.expire > now { break }
+		if v.expire > now {
+			break
+		}
 		delete(tm.vals, v.key)
 		tm.fifo.Remove(e) // or create new list and add e?
 	}
@@ -87,7 +90,7 @@ func (tm *TickMap) run() {
 	for {
 		select {
 		case cmd := <-tm.cmd:
-			if cmd.code == DONE { 
+			if cmd.code == DONE {
 				close(tm.cmd)
 				close(tm.rc)
 				return
@@ -118,7 +121,7 @@ func (tm *TickMap) handle(cmd *command) (interface{}, error) {
 		e := &element{uuid, time.Now().Unix(), cmd.param}
 		tm.vals[uuid] = tm.fifo.PushBack(e)
 		return uuid, nil
-			
+
 	case GET: // cmd.val is UUID
 		v, found := tm.vals[cmd.param.(string)]
 		if !found {
@@ -135,21 +138,23 @@ func (tm *TickMap) handle(cmd *command) (interface{}, error) {
 
 func (tm *TickMap) Add(val interface{}) (string, error) {
 	tm.cmd <- &command{ADD, val}
-	rc := <- tm.rc
+	rc := <-tm.rc
 	return rc.val.(string), rc.err
 }
 
 func (tm *TickMap) Get(uuid string) (interface{}, error) {
 	tm.cmd <- &command{GET, uuid}
-	rc := <- tm.rc
+	rc := <-tm.rc
 	return rc.val, rc.err
 }
 
 func (tm *TickMap) Destroy() {
-	if tm.done { return }
+	if tm.done {
+		return
+	}
 	tm.cmd <- &command{DONE, nil}
 	// wait closing channel
-	<- tm.rc
+	<-tm.rc
 	return
 
 }

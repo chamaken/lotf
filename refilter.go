@@ -19,9 +19,9 @@ type Filter interface {
 }
 
 type regexpFilter struct {
-        name string
+	name   string
 	invert bool
-	filter func(string)bool
+	filter func(string) bool
 }
 
 func init() {
@@ -29,8 +29,7 @@ func init() {
 	filterFactory = joinedExpFilter
 }
 
-
-func RegexpFilter(filtername string)(Filter, error) {
+func RegexpFilter(filtername string) (Filter, error) {
 	sm := filternameExp.FindStringSubmatch(filtername)
 	if sm == nil {
 		return nil, fmt.Errorf("invalid filter name: %s", filtername)
@@ -39,11 +38,11 @@ func RegexpFilter(filtername string)(Filter, error) {
 	invert := len(sm[1]) > 0
 	filter, err := filterFactory(sm[2], invert)
 	if err != nil {
-		return  nil, err
+		return nil, err
 	}
 
 	return &regexpFilter{
-		name: sm[2],
+		name:   sm[2],
 		filter: filter,
 		invert: invert}, nil
 }
@@ -84,15 +83,22 @@ LOOP:
 	for {
 		line, err := r.ReadString(byte('\n'))
 
-		if err != nil && err != io.EOF { return nil, err }
-		if len(line) == 0 && err == io.EOF { break }
+		if err != nil && err != io.EOF {
+			return nil, err
+		}
+		if len(line) == 0 && err == io.EOF {
+			break
+		}
 
 		nlidx := strings.LastIndex(line, "\n")
 		switch {
-		case nlidx == 0: { continue LOOP } // ignore empty line
+		case nlidx == 0:
+			{
+				continue LOOP
+			} // ignore empty line
 		case nlidx < 0: // do nothing, may be lastline not ended with \n
 		default:
-			line = line[:len(line) - 1]
+			line = line[:len(line)-1]
 		}
 
 		rexp, err := regexp.Compile(line)
@@ -112,7 +118,6 @@ LOOP:
 	}, nil
 }
 
-
 func joinedExpFilter(path string, inverse bool) (func(string) bool, error) {
 	var err error
 
@@ -130,15 +135,22 @@ LOOP:
 	for {
 		line, err := r.ReadString(byte('\n'))
 
-		if err != nil && err != io.EOF { return nil, err }
-		if len(line) == 0 && err == io.EOF { break }
+		if err != nil && err != io.EOF {
+			return nil, err
+		}
+		if len(line) == 0 && err == io.EOF {
+			break
+		}
 
 		nlidx := strings.LastIndex(line, "\n")
 		switch {
-		case nlidx == 0: { continue LOOP } // ignore empty line
+		case nlidx == 0:
+			{
+				continue LOOP
+			} // ignore empty line
 		case nlidx < 0: // do nothing, may be lastline not ended with \n
 		default:
-			line = line[:len(line) - 1]
+			line = line[:len(line)-1]
 		}
 
 		if _, err := regbuf.WriteString(line + "|"); err != nil {
@@ -147,11 +159,13 @@ LOOP:
 	}
 
 	b := regbuf.Bytes()
-	b[len(b) - 1] = byte(')')
+	b[len(b)-1] = byte(')')
 	joinedexp := string(b)
-	
+
 	re, err := regexp.Compile(joinedexp)
-	if err != nil {	return nil, err	}
+	if err != nil {
+		return nil, err
+	}
 
 	return func(s string) bool {
 		return (re.FindStringIndex(s) != nil) == !inverse

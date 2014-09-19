@@ -2,27 +2,24 @@ package main
 
 import (
 	"fmt"
-	"net"
-	"github.com/chamaken/lotf"
 	"github.com/chamaken/logger"
+	"github.com/chamaken/lotf"
+	"net"
 )
 
-
 type StreamServer struct {
-	tail lotf.Tail
+	tail     lotf.Tail
 	listener *net.TCPListener
-	done chan bool
+	done     chan bool
 }
 
-
-func NewTCPServer(t lotf.Tail, addr *net.TCPAddr)(*StreamServer, error) {
+func NewTCPServer(t lotf.Tail, addr *net.TCPAddr) (*StreamServer, error) {
 	listener, err := net.ListenTCP("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
 	return &StreamServer{t, listener, make(chan bool, 1)}, nil
 }
-
 
 func serve(conn net.Conn, t lotf.Tail, errch chan<- error) {
 	defer conn.Close()
@@ -37,13 +34,17 @@ func serve(conn net.Conn, t lotf.Tail, errch chan<- error) {
 	}
 }
 
-
 func (svr *StreamServer) Run(errch chan<- error) {
 	done := false
 	for !done {
 		conn, err := svr.listener.Accept()
-		select { case done = <- svr.done: default: }
-		if done { break }
+		select {
+		case done = <-svr.done:
+		default:
+		}
+		if done {
+			break
+		}
 		if err != nil {
 			logger.Error("listener accept: %s", err)
 			errch <- err
@@ -53,7 +54,6 @@ func (svr *StreamServer) Run(errch chan<- error) {
 	}
 	logger.Info("exit Run gracefully")
 }
-
 
 func (svr *StreamServer) Done() error {
 	svr.done <- true

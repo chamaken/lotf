@@ -152,15 +152,15 @@ func TestTell(t *testing.T) {
 		t.Fatalf("expect %d, but got: %d", len(s), tr.Tell())
 	}
 
-	line, err := tr.PrevSlice('\n'); 
+	line, err := tr.PrevSlice('\n')
 	if err != nil {
 		t.Fatalf("failed to get PrevSlice: %s", err)
 	}
 	if string(line) != "\n" {
 		t.Fatalf("expect \\n but got: %s", line)
 	}
-	if int(tr.Tell()) != len(s) - 1 {
-		t.Fatalf("expect %d, but got: %d", len(s) - 1, tr.Tell())
+	if int(tr.Tell()) != len(s)-1 {
+		t.Fatalf("expect %d, but got: %d", len(s)-1, tr.Tell())
 	}
 	if line, err = tr.PrevSlice('\n'); err != nil {
 		t.Fatalf("failed to get PrevSlice: %s", err)
@@ -168,8 +168,8 @@ func TestTell(t *testing.T) {
 	if string(line) != "\n10: 000000000000" {
 		t.Fatalf("expect line '\\n10: 000000000000' but got: %s", line)
 	}
-	if int(tr.Tell()) != len(s) - 2 - 0x10 {
-		t.Fatalf("expect %d, but got: %d", len(s) - 2 - 0x10, tr.Tell())
+	if int(tr.Tell()) != len(s)-2-0x10 {
+		t.Fatalf("expect %d, but got: %d", len(s)-2-0x10, tr.Tell())
 	}
 
 	// move file pointer to the beginnig
@@ -230,7 +230,7 @@ func TestPrevBytes(t *testing.T) {
 	}
 	if string(line) != "\n" {
 		t.Fatalf("expect string \\n, but got: %s", string(line))
-	}		
+	}
 
 	tr.Rewind()
 	line, err = tr.PrevBytes('\n') // returns \n only

@@ -1,18 +1,17 @@
 package main
 
 import (
-	"os"
-	"log"
-	"io"
-	"errors"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
-	"net"
-	"github.com/chamaken/lotf"
 	"github.com/chamaken/logger"
+	"github.com/chamaken/lotf"
+	"io"
+	"log"
+	"net"
+	"os"
 )
-
 
 var logfileFlag string
 var loglevelFlag string
@@ -28,24 +27,21 @@ func init() {
 	flag.IntVar(&lastlinesFlag, "n", 10, "last lines on startup")
 }
 
-
 type RCEntry struct {
-	File string
-	Filter string
-	Udpaddr string
-	Tcpaddr string
+	File     string
+	Filter   string
+	Udpaddr  string
+	Tcpaddr  string
 	Buflines int
 }
 
-
 type LTFResource struct {
 	filename string
-	filter lotf.Filter
-	tcpaddr *net.TCPAddr
-	udpaddr *net.UDPAddr
+	filter   lotf.Filter
+	tcpaddr  *net.TCPAddr
+	udpaddr  *net.UDPAddr
 	buflines int
 }
-
 
 func makeResources(fname string) ([]LTFResource, error) {
 	var err error
@@ -66,7 +62,7 @@ func makeResources(fname string) ([]LTFResource, error) {
 	}
 
 	t := make([]LTFResource, len(s))
-	for i, e := range(s) {
+	for i, e := range s {
 		t[i].filename = e.File
 		t[i].buflines = e.Buflines
 		if len(e.Filter) > 0 {
@@ -90,7 +86,6 @@ func makeResources(fname string) ([]LTFResource, error) {
 	return t, nil
 }
 
-
 func parseFlags() ([]LTFResource, int, error) {
 	flag.Parse()
 	if flag.NArg() > 0 {
@@ -98,7 +93,7 @@ func parseFlags() ([]LTFResource, int, error) {
 	}
 
 	level := logger.LOG_NOTICE
-	for k, v := range(logger.Levels) {
+	for k, v := range logger.Levels {
 		if loglevelFlag == v {
 			level = k
 			break
@@ -107,7 +102,7 @@ func parseFlags() ([]LTFResource, int, error) {
 	logger.SetPriority(level)
 
 	if len(logfileFlag) > 0 {
-		f, err := os.OpenFile(logfileFlag, os.O_CREATE | os.O_WRONLY | os.O_APPEND, 0640)
+		f, err := os.OpenFile(logfileFlag, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0640)
 		if err != nil {
 			return nil, -1, err
 		}

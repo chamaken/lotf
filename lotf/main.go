@@ -2,14 +2,13 @@ package main
 
 import (
 	"container/list"
-	"os"
 	"fmt"
-	"strconv"
-	"strings"
 	logger "github.com/chamaken/logger"
 	lotf "github.com/chamaken/lotf"
+	"os"
+	"strconv"
+	"strings"
 )
-
 
 func usage() {
 	fmt.Printf("usage: %s <triplet> [<triplet> <triplet> ...]\n", os.Args[0])
@@ -21,9 +20,9 @@ func usage() {
 
 type Arg struct {
 	// <file name>:<filter name>:<nline>
-	fname string
+	fname  string
 	filter lotf.Filter
-	lines uint64
+	lines  uint64
 }
 
 func main() {
@@ -56,7 +55,7 @@ func main() {
 		logger.Fatal("could not create watcher: %s", err)
 	}
 	go func() {
-		for err = range(tw.Error) {
+		for err = range tw.Error {
 			fmt.Printf("ERROR: %s\n", err)
 			os.Exit(1)
 		}
@@ -67,7 +66,9 @@ func main() {
 		arg := e.Value.(*Arg)
 		go func() {
 			maxlines := 1
-			if arg.lines > 0 { maxlines = int(arg.lines) }
+			if arg.lines > 0 {
+				maxlines = int(arg.lines)
+			}
 			tail, err := tw.Add(arg.fname, maxlines, arg.filter, int(arg.lines))
 			if err != nil {
 				logger.Fatal("could not add %s to watcher: %s", arg.fname, err)
@@ -78,7 +79,7 @@ func main() {
 		}()
 	}
 
-	for line := range(ch) {
+	for line := range ch {
 		fmt.Println(line)
 	}
 }

@@ -5,13 +5,12 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/chamaken/logger"
+	"github.com/chamaken/lotf"
 	"io"
 	"log"
 	"os"
-	"github.com/chamaken/lotf"
-	"github.com/chamaken/logger"
 )
-
 
 var logfileFlag string
 var loglevelFlag string
@@ -25,13 +24,12 @@ func init() {
 	flag.StringVar(&pidfileFlag, "p", "", "pid filename")
 }
 
-
 type Config struct {
-	Address   string
-	Root      string
-	Template  string
-	Duration  int
-        Lotfs	  []LotfConfig
+	Address  string
+	Root     string
+	Template string
+	Duration int
+	Lotfs    []LotfConfig
 }
 
 type LotfConfig struct {
@@ -43,11 +41,11 @@ type LotfConfig struct {
 }
 
 type config struct {
-	addr      string
-        root      string
-	template  string
-	duration  int
-        lotfs     map[string]*lotfConfig
+	addr     string
+	root     string
+	template string
+	duration int
+	lotfs    map[string]*lotfConfig
 }
 
 type lotfConfig struct {
@@ -56,7 +54,6 @@ type lotfConfig struct {
 	buflines  int
 	lastlines int
 }
-
 
 func makeResources(fname string) (*config, error) {
 	r, err := os.Open(fname)
@@ -75,7 +72,7 @@ func makeResources(fname string) (*config, error) {
 	}
 
 	lotfs := make(map[string]*lotfConfig)
-	for _, v := range(s.Lotfs) {
+	for _, v := range s.Lotfs {
 		if _, found := lotfs[v.Name]; found {
 			logger.Fatal("founnd dup name: %s", v.Name)
 		}
@@ -89,22 +86,22 @@ func makeResources(fname string) (*config, error) {
 			filter = nil
 		}
 		lotfs[v.Name] = &lotfConfig{
-			filename: v.File,
-			filter: filter,
-			buflines: v.Buflines,
+			filename:  v.File,
+			filter:    filter,
+			buflines:  v.Buflines,
 			lastlines: v.Lastlines,
 		}
 	}
 
-	if s.Root[len(s.Root) - 1] != '/' {
+	if s.Root[len(s.Root)-1] != '/' {
 		s.Root += "/"
 	}
 	return &config{
-		addr: s.Address,
-		root: s.Root,
+		addr:     s.Address,
+		root:     s.Root,
 		template: s.Template,
 		duration: s.Duration,
-		lotfs: lotfs}, nil
+		lotfs:    lotfs}, nil
 }
 
 func parseFlags() (*config, error) {
@@ -114,7 +111,7 @@ func parseFlags() (*config, error) {
 	}
 
 	level := logger.LOG_NOTICE
-	for k, v := range(logger.Levels) {
+	for k, v := range logger.Levels {
 		if loglevelFlag == v {
 			level = k
 			break
@@ -123,7 +120,7 @@ func parseFlags() (*config, error) {
 	logger.SetPriority(level)
 
 	if len(logfileFlag) > 0 {
-		f, err := os.OpenFile(logfileFlag, os.O_CREATE | os.O_WRONLY | os.O_APPEND, 0640)
+		f, err := os.OpenFile(logfileFlag, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0640)
 		if err != nil {
 			return nil, err
 		}
