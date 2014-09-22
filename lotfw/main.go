@@ -4,11 +4,12 @@ import (
 	"container/list"
 	"encoding/json"
 	"fmt"
-	"github.com/chamaken/logger"
 	"github.com/chamaken/lotf"
+	"github.com/coreos/go-log/log"
 	"html/template"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -29,6 +30,7 @@ const (
 	COOKIE_NAME = "lotf"
 )
 
+var logger *log.Logger
 var cfg *config
 var cookies *TickMap
 var templates *template.Template
@@ -126,20 +128,21 @@ func main() {
 
 	cfg, err = parseFlags()
 	if err != nil {
-		logger.Fatal("config error: %s", err)
+		fmt.Fprintf(os.Stderr, "config error: %s\n", err)
+		os.Exit(1)
 	}
 
 	templates = template.Must(template.ParseFiles(cfg.template))
 	cookies = NewTickMap(time.Duration(cfg.duration) * time.Second)
 	watcher, err := lotf.NewTailWatcher()
 	if err != nil {
-		logger.Fatal("NewTailWatcher: %s", err)
+		logger.Fatalf("NewTailWatcher: %s", err)
 	}
 	for k, v := range cfg.lotfs {
-		logger.Notice("creating tail: %s", v.filename)
+		logger.Noticef("creating tail: %s", v.filename)
 		t, err := watcher.Add(v.filename, v.buflines, v.filter, v.lastlines)
 		if err != nil {
-			logger.Fatal("Add to watcher - %s: %s", v.filename, err)
+			logger.Fatalf("Add to watcher - %s: %s", v.filename, err)
 		}
 		tails[k] = t
 	}
@@ -147,11 +150,11 @@ func main() {
 	http.HandleFunc(cfg.root, handler)
 	l, err := net.Listen("tcp", cfg.addr)
 	if err != nil {
-		logger.Fatal("listen: %s", err)
+		logger.Fatalf("listen: %s", err)
 	}
 	s := &http.Server{}
-	logger.Notice("start serving - addr: %s, path: %s", cfg.addr, cfg.root)
+	logger.Noticef("start serving - addr: %s, path: %s", cfg.addr, cfg.root)
 	if err := s.Serve(l); err != nil {
-		logger.Fatal("http.Serve: %s", err)
+		logger.Fatalf("http.Serve: %s", err)
 	}
 }

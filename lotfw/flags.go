@@ -5,11 +5,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/chamaken/logger"
 	"github.com/chamaken/lotf"
+	"github.com/coreos/go-log/log"
 	"io"
-	"log"
 	"os"
+	"strings"
 )
 
 var logfileFlag string
@@ -74,13 +74,13 @@ func makeResources(fname string) (*config, error) {
 	lotfs := make(map[string]*lotfConfig)
 	for _, v := range s.Lotfs {
 		if _, found := lotfs[v.Name]; found {
-			logger.Fatal("founnd dup name: %s", v.Name)
+			logger.Fatalf("founnd dup name: %s", v.Name)
 		}
 		var filter lotf.Filter
 		if len(v.Filter) > 0 {
 			filter, err = lotf.RegexpFilter(v.Filter)
 			if err != nil {
-				logger.Fatal("create filter: %s", v.Filter)
+				logger.Fatalf("create filter: %s", v.Filter)
 			}
 		} else {
 			filter = nil
@@ -110,23 +110,28 @@ func parseFlags() (*config, error) {
 		return nil, errors.New(fmt.Sprintf("invalid arg(s): %s", flag.Args()))
 	}
 
-	level := logger.LOG_NOTICE
-	for k, v := range logger.Levels {
-		if loglevelFlag == v {
+	level := log.PriNotice
+	for k := log.PriEmerg; k <= log.PriDebug; k++ {
+		v := strings.ToLower(fmt.Sprintf("%s", k))[:3]
+		if strings.ToLower(loglevelFlag)[:3] == v {
 			level = k
 			break
 		}
 	}
-	logger.SetPriority(level)
 
+	f := os.Stderr
 	if len(logfileFlag) > 0 {
-		f, err := os.OpenFile(logfileFlag, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0640)
+		var err error
+		f, err = os.OpenFile(logfileFlag, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0640)
 		if err != nil {
 			return nil, err
 		}
-		logger.SetOutput(f)
 	}
-	logger.SetFlags(log.LstdFlags | log.Llongfile)
+	logger = log.New("", true,
+		log.PriorityFilter(
+			level,
+			log.WriterSink(f, log.RichFormat, log.RichFields),
+		))
 
 	resources, err := makeResources(rcfileFlag)
 	if err != nil {
