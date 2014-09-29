@@ -3,8 +3,8 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/chamaken/logger"
 	"github.com/chamaken/lotf"
+	"github.com/golang/glog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -58,7 +58,7 @@ func sighandler(watcher *lotf.TailWatcher, rcs []resource, errch chan<- error) {
 			break
 
 		default:
-			logger.Notice("ignore sighanl: %s", s)
+			glog.Infof("ignore sighanl: %s", s)
 		}
 	}
 }
@@ -69,7 +69,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error - could not create watcher: %s\n", err)
 	}
 
-	// logger has been set up in parseFlags()
+	// glog has been set up in parseFlags()
 	flags, nlines, err := parseFlags()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
@@ -84,14 +84,14 @@ func main() {
 			os.Exit(1)
 		}
 
-		logger.Info("adding watch - path: %s, filter: %s", rc.filename, rc.filter)
+		glog.Infof("adding watch - path: %s, filter: %s", rc.filename, rc.filter)
 		if rcs[i].tail, err = watcher.Add(rc.filename, nlines, rc.filter, rc.buflines); err != nil {
-			logger.Fatal("could not watch: %s\n", err)
+			glog.Fatalf("could not watch: %s\n", err)
 		}
-		logger.Info("watch added - path: %s, filter: %s", rc.filename, rc.filter)
+		glog.Infof("watch added - path: %s, filter: %s", rc.filename, rc.filter)
 
 		if rc.tcpaddr != nil {
-			logger.Info("starting TCP service - addr: %v)", rc.tcpaddr)
+			glog.Infof("starting TCP service - addr: %v)", rc.tcpaddr)
 			if rcs[i].ssvr, err = NewTCPServer(rcs[i].tail, rc.tcpaddr); err != nil {
 				fmt.Fprintf(os.Stderr, "error - could not start TCP service: %s\n", err)
 				os.Exit(1)
@@ -99,7 +99,7 @@ func main() {
 			go rcs[i].ssvr.Run(errch)
 		}
 		if rc.udpaddr != nil {
-			logger.Info("starting UDP service - addr: %v", rc.udpaddr)
+			glog.Infof("starting UDP service - addr: %v", rc.udpaddr)
 			if rcs[i].usvr, err = NewUDPServer(rcs[i].tail, rc.udpaddr); err != nil {
 				fmt.Fprintf(os.Stderr, "error - could not start UDP service: %s\n", err)
 				os.Exit(1)
@@ -113,7 +113,7 @@ func main() {
 
 	// daemonize?
 	for err := range errch {
-		logger.Error("%s", err)
+		glog.Errorf("%s", err)
 		break
 	}
 }

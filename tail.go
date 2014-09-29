@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	inotify "github.com/chamaken/inotify"
-	logger "github.com/chamaken/logger"
+	"github.com/golang/glog"
 	"io"
 	"os"
 	"path/filepath"
@@ -43,7 +43,9 @@ func FileLines(file *os.File, nLines int) (int64, error) {
 
 	fi, err := file.Stat()
 	if err != nil {
-		logger.Debug("File.Stat(): %s", err)
+		if glog.V(1) {
+			glog.Infof("File.Stat(): %s", err)
+		}
 		return -1, err
 	}
 	if fi.Sys().(*syscall.Stat_t).Mode&syscall.S_IFMT != syscall.S_IFREG {
@@ -68,11 +70,15 @@ func FileLines(file *os.File, nLines int) (int64, error) {
 	// reads will be on block (BUFSIZ) boundaries, which might increase efficiency.
 	pos -= int64(bytesRead)
 	if _, err := file.Seek(pos, os.SEEK_SET); err != nil {
-		logger.Debug("File.Seek(%d, SEEK_SET): %s", pos, err)
+		if glog.V(1) {
+			glog.Infof("File.Seek(%d, SEEK_SET): %s", pos, err)
+		}
 		return -1, err
 	}
 	if bytesRead, err = file.Read(buffer[:bytesRead]); err != nil {
-		logger.Debug("File.Read(): %s", err)
+		if glog.V(1) {
+			glog.Infof("File.Read(): %s", err)
+		}
 		return -1, err
 	}
 
@@ -99,12 +105,16 @@ LOOP:
 		}
 		pos -= BUFSIZ
 		if _, err = file.Seek(pos, os.SEEK_SET); err != nil {
-			logger.Debug("File.Seek(%d, SEEK_SET): %s", pos, err)
+			if glog.V(1) {
+				glog.Infof("File.Seek(%d, SEEK_SET): %s", pos, err)
+			}
 			return -1, err
 		}
 
 		if bytesRead, err = file.Read(buffer); err != nil {
-			logger.Debug("File.Read(): %s", err)
+			if glog.V(1) {
+				glog.Infof("File.Read(): %s", err)
+			}
 			return -1, err
 		}
 	}
@@ -138,7 +148,7 @@ func (tail *TailName) readlines(errch chan<- error) {
 	var err error
 
 	if _, err = tail.file.Seek(tail.lastp, os.SEEK_SET); err != nil {
-		logger.Info("File.Seek(%d, SEEK_SET): %s", tail.lastp, err)
+		glog.Infof("File.Seek(%d, SEEK_SET): %s", tail.lastp, err)
 		errch <- err
 		return
 	}
@@ -148,7 +158,7 @@ func (tail *TailName) readlines(errch chan<- error) {
 		if err == io.EOF {
 			return
 		} else if err != nil {
-			logger.Info("File.ReadBytes(): %s", err)
+			glog.Infof("File.ReadBytes(): %s", err)
 			errch <- err
 			return
 		}
@@ -167,14 +177,14 @@ func (tail *TailName) handleCreate(errch chan<- error) {
 	if tail.file != nil {
 		errch <- fmt.Errorf("open already opened file")
 		if err := tail.file.Close(); err != nil {
-			logger.Info("File.Close(): %s", err)
+			glog.Infof("File.Close(): %s", err)
 			errch <- err
 		}
 	}
 
 	tail.file, err = os.Open(tail.name)
 	if err != nil {
-		logger.Info("File.Open(%s): %s", tail.name, err)
+		glog.Infof("File.Open(%s): %s", tail.name, err)
 		errch <- err
 		return
 	}
@@ -188,21 +198,21 @@ func (tail *TailName) handleCreate(errch chan<- error) {
 func (tail *TailName) handleDisappear(errch chan<- error) {
 	fi, err := tail.file.Stat()
 	if err != nil {
-		logger.Info("File.Stat(): %s", err)
+		glog.Infof("File.Stat(): %s", err)
 		errch <- err
 		return
 	}
 	// read unfinished one line
 	for fi.Size() > tail.lastp {
 		if _, err = tail.file.Seek(tail.lastp, os.SEEK_SET); err != nil {
-			logger.Info("File.Seek(%d, SEEK_SET): %s", tail.lastp, err)
+			glog.Infof("File.Seek(%d, SEEK_SET): %s", tail.lastp, err)
 			errch <- err
 		}
 		r := bufio.NewReader(tail.file)
 		line, err := r.ReadBytes(byte('\n'))
 		// add line even if it does not end with LF
 		if err != nil && err != io.EOF {
-			logger.Info("File.ReadBytes(): %s", err)
+			glog.Infof("File.ReadBytes(): %s", err)
 			errch <- err
 		}
 		if tail.filter == nil || tail.filter.Filter(string(line[:len(line)-1])) {
@@ -217,7 +227,7 @@ func (tail *TailName) handleDisappear(errch chan<- error) {
 
 	// close and invalidate TailName.file
 	if err = tail.file.Close(); err != nil {
-		logger.Info("File.Close(): %s", err)
+		glog.Infof("File.Close(): %s", err)
 		errch <- err
 	}
 	tail.file = nil
@@ -228,7 +238,7 @@ func (tail *TailName) handleDisappear(errch chan<- error) {
 func (tail *TailName) handleModify(errch chan<- error) {
 	fi, err := tail.file.Stat()
 	if err != nil {
-		logger.Info("File.Stat(): %s", err)
+		glog.Infof("File.Stat(): %s", err)
 		errch <- err
 		return
 	}
@@ -303,7 +313,9 @@ type TailWatcher struct {
 func NewTailWatcher() (*TailWatcher, error) {
 	watcher, err := inotify.NewWatcher()
 	if err != nil {
-		logger.Debug("inotify.NewWatcher(): %s", err)
+		if glog.V(1) {
+			glog.Infof("inotify.NewWatcher(): %s", err)
+		}
 		return nil, err
 	}
 
@@ -345,7 +357,9 @@ func (tw *TailWatcher) Close() error {
 			continue
 		}
 		if err := tail.file.Close(); err != nil {
-			logger.Debug("File.Close(): %s", err)
+			if glog.V(1) {
+				glog.Infof("File.Close(): %s", err)
+			}
 			return err
 		}
 	}
@@ -366,7 +380,9 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter Filter, lines in
 
 	// normalize pathname
 	if absname, err = filepath.Abs(pathname); err != nil {
-		logger.Debug("filepath.Abs(): %s", err)
+		if glog.V(1) {
+			glog.Infof("filepath.Abs(): %s", err)
+		}
 		return nil, err
 	}
 	if _, found := tw.tails[absname]; found {
@@ -376,13 +392,17 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter Filter, lines in
 
 	// open file
 	if file, err = os.Open(absname); err != nil {
-		logger.Debug("Open(%s): %s", absname, err)
+		if glog.V(1) {
+			glog.Infof("Open(%s): %s", absname, err)
+		}
 		return nil, err
 	}
 
 	// create list for last lines
 	if q, err = NewBlockq(maxline); err != nil {
-		logger.Debug("NewBlockq(): %s", err)
+		if glog.V(1) {
+			glog.Infof("NewBlockq(): %s", err)
+		}
 		goto ERR_CLOSE
 	}
 
@@ -409,7 +429,9 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter Filter, lines in
 		line, err = tr.PrevBytes('\n')
 		if err != nil {
 			if err != ErrorStartOfFile {
-				logger.Debug("TailReader.PrevBytes(): %s", err)
+				if glog.V(1) {
+					glog.Infof("TailReader.PrevBytes(): %s", err)
+				}
 				goto ERR_CLOSE
 			}
 			lines = 0
@@ -424,7 +446,9 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter Filter, lines in
 	}
 
 	if _, err = file.Seek(pos, os.SEEK_SET); err != nil {
-		logger.Debug("File.Seek(%d, SEEK_SET): %s", pos, err)
+		if glog.V(1) {
+			glog.Infof("File.Seek(%d, SEEK_SET): %s", pos, err)
+		}
 		goto ERR_CLOSE
 	}
 
@@ -452,7 +476,9 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter Filter, lines in
 				return found
 			})
 		if err != nil {
-			logger.Debug("AddWatchFilter(): %s", err)
+			if glog.V(1) {
+				glog.Infof("AddWatchFilter(): %s", err)
+			}
 			goto ERR_CLOSE
 		}
 		tw.dirs[dirname] = 1
@@ -472,7 +498,9 @@ func (tw *TailWatcher) Lookup(pathname string) (Tail, error) {
 	// normalize pathname
 	absname, err := filepath.Abs(pathname)
 	if err != nil {
-		logger.Debug("filepath.Abs(): %s", err)
+		if glog.V(1) {
+			glog.Info("filepath.Abs(): %s", err)
+		}
 		return nil, err
 	}
 
@@ -488,7 +516,9 @@ func (tw *TailWatcher) Remove(pathname string) error {
 	// normalize pathname
 	absname, err := filepath.Abs(pathname)
 	if err != nil {
-		logger.Debug("filepath.Abs(): %s", err)
+		if glog.V(1) {
+			glog.Infof("filepath.Abs(): %s", err)
+		}
 		return err
 	}
 	dirname := filepath.Dir(absname)
@@ -507,7 +537,9 @@ func (tw *TailWatcher) Remove(pathname string) error {
 
 	if tail.file != nil {
 		if err := tail.file.Close(); err != nil {
-			logger.Debug("File.Close(): %s", err)
+			if glog.V(1) {
+				glog.Infof("File.Close(): %s", err)
+			}
 			return err
 		}
 	}
@@ -516,7 +548,9 @@ func (tw *TailWatcher) Remove(pathname string) error {
 
 	if refcnt == 1 { // the last one
 		if err := tw.watch.RemoveWatch(dirname); err != nil {
-			logger.Debug("inotify.RemoveWatch(): %s", err)
+			if glog.V(1) {
+				glog.Infof("inotify.RemoveWatch(): %s", err)
+			}
 			return err
 		}
 		delete(tw.dirs, dirname)

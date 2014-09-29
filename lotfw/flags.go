@@ -5,21 +5,16 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/chamaken/logger"
 	"github.com/chamaken/lotf"
+	"github.com/golang/glog"
 	"io"
-	"log"
 	"os"
 )
 
-var logfileFlag string
-var loglevelFlag string
 var rcfileFlag string
 var pidfileFlag string
 
 func init() {
-	flag.StringVar(&logfileFlag, "o", "", "logfile or os.Stderr")
-	flag.StringVar(&loglevelFlag, "l", "notice", "loglevel string, default notice")
 	flag.StringVar(&rcfileFlag, "c", "config.json", "config filename")
 	flag.StringVar(&pidfileFlag, "p", "", "pid filename")
 }
@@ -74,13 +69,13 @@ func makeResources(fname string) (*config, error) {
 	lotfs := make(map[string]*lotfConfig)
 	for _, v := range s.Lotfs {
 		if _, found := lotfs[v.Name]; found {
-			logger.Fatal("founnd dup name: %s", v.Name)
+			glog.Fatalf("founnd dup name: %s", v.Name)
 		}
 		var filter lotf.Filter
 		if len(v.Filter) > 0 {
 			filter, err = lotf.RegexpFilter(v.Filter)
 			if err != nil {
-				logger.Fatal("create filter: %s", v.Filter)
+				glog.Fatalf("create filter: %s", v.Filter)
 			}
 		} else {
 			filter = nil
@@ -109,24 +104,6 @@ func parseFlags() (*config, error) {
 	if flag.NArg() > 0 {
 		return nil, errors.New(fmt.Sprintf("invalid arg(s): %s", flag.Args()))
 	}
-
-	level := logger.LOG_NOTICE
-	for k, v := range logger.Levels {
-		if loglevelFlag == v {
-			level = k
-			break
-		}
-	}
-	logger.SetPriority(level)
-
-	if len(logfileFlag) > 0 {
-		f, err := os.OpenFile(logfileFlag, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0640)
-		if err != nil {
-			return nil, err
-		}
-		logger.SetOutput(f)
-	}
-	logger.SetFlags(log.LstdFlags | log.Llongfile)
 
 	resources, err := makeResources(rcfileFlag)
 	if err != nil {

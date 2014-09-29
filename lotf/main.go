@@ -2,20 +2,23 @@ package main
 
 import (
 	"container/list"
+	"flag"
 	"fmt"
-	logger "github.com/chamaken/logger"
-	lotf "github.com/chamaken/lotf"
+	"github.com/chamaken/lotf"
+	"github.com/golang/glog"
 	"os"
 	"strconv"
 	"strings"
 )
 
 func usage() {
-	fmt.Printf("usage: %s <triplet> [<triplet> <triplet> ...]\n", os.Args[0])
-	fmt.Println("  where triplet is colon separated <file>:<filter>:<lines>")
-	fmt.Println("    file:   target file name")
-	fmt.Println("    filter: filter file name")
-	fmt.Println("    lines:  number of last lines to print")
+	fmt.Fprintf(os.Stderr, "Usage of: %s <options> <triplet> [<triplet> <triplet> ...]\n", os.Args[0])
+	fmt.Fprintln(os.Stderr, " where options are:")
+	flag.PrintDefaults()
+	fmt.Fprintln(os.Stderr, " where triplet is colon separated <file>:<filter>:<lines>")
+	fmt.Fprintln(os.Stderr, "  file:   target file name")
+	fmt.Fprintln(os.Stderr, "  filter: filter file name")
+	fmt.Fprintln(os.Stderr, "  lines:  number of last lines to print")
 }
 
 type Arg struct {
@@ -26,8 +29,10 @@ type Arg struct {
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		usage()
+	flag.Usage = usage
+	flag.Parse()
+	if flag.NArg() < 1 {
+		flag.Usage()
 		os.Exit(1)
 	}
 
@@ -39,12 +44,12 @@ func main() {
 		arg := &Arg{args[0], nil, 0}
 		if len(args) > 1 && len(args[1]) > 0 {
 			if arg.filter, err = lotf.RegexpFilter(args[1]); err != nil {
-				logger.Fatal("could not create filter from: %s, error: %s", args[1], err)
+				glog.Fatalf("could not create filter from: %s, error: %s", args[1], err)
 			}
 		}
 		if len(args) > 2 {
 			if arg.lines, err = strconv.ParseUint(args[2], 0, 64); err != nil {
-				logger.Fatal("invalid number of lines: %s", args[2])
+				glog.Fatalf("invalid number of lines: %s", args[2])
 			}
 		}
 		argl.PushBack(arg)
@@ -52,7 +57,7 @@ func main() {
 
 	tw, err := lotf.NewTailWatcher()
 	if err != nil {
-		logger.Fatal("could not create watcher: %s", err)
+		glog.Fatalf("could not create watcher: %s", err)
 	}
 	go func() {
 		for err = range tw.Error {
@@ -71,7 +76,7 @@ func main() {
 			}
 			tail, err := tw.Add(arg.fname, maxlines, arg.filter, int(arg.lines))
 			if err != nil {
-				logger.Fatal("could not add %s to watcher: %s", arg.fname, err)
+				glog.Fatalf("could not add %s to watcher: %s", arg.fname, err)
 			}
 			for s := tail.WaitNext(); s != nil; s = tail.WaitNext() {
 				ch <- *s

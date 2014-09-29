@@ -40,7 +40,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	// logger "github.com/chamaken/logger"
+	// "github.com/golang/glog"
 )
 
 type ReadAtSeeker interface {

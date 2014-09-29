@@ -4,8 +4,8 @@ import (
 	"container/list"
 	"encoding/json"
 	"fmt"
-	"github.com/chamaken/logger"
 	"github.com/chamaken/lotf"
+	"github.com/golang/glog"
 	"html/template"
 	"net"
 	"net/http"
@@ -126,20 +126,20 @@ func main() {
 
 	cfg, err = parseFlags()
 	if err != nil {
-		logger.Fatal("config error: %s", err)
+		glog.Fatalf("config error: %s", err)
 	}
 
 	templates = template.Must(template.ParseFiles(cfg.template))
 	cookies = NewTickMap(time.Duration(cfg.duration) * time.Second)
 	watcher, err := lotf.NewTailWatcher()
 	if err != nil {
-		logger.Fatal("NewTailWatcher: %s", err)
+		glog.Fatalf("NewTailWatcher: %s", err)
 	}
 	for k, v := range cfg.lotfs {
-		logger.Notice("creating tail: %s", v.filename)
+		glog.Infof("creating tail: %s", v.filename)
 		t, err := watcher.Add(v.filename, v.buflines, v.filter, v.lastlines)
 		if err != nil {
-			logger.Fatal("Add to watcher - %s: %s", v.filename, err)
+			glog.Fatalf("Add to watcher - %s: %s", v.filename, err)
 		}
 		tails[k] = t
 	}
@@ -147,11 +147,11 @@ func main() {
 	http.HandleFunc(cfg.root, handler)
 	l, err := net.Listen("tcp", cfg.addr)
 	if err != nil {
-		logger.Fatal("listen: %s", err)
+		glog.Fatalf("listen: %s", err)
 	}
 	s := &http.Server{}
-	logger.Notice("start serving - addr: %s, path: %s", cfg.addr, cfg.root)
+	glog.Infof("start serving - addr: %s, path: %s", cfg.addr, cfg.root)
 	if err := s.Serve(l); err != nil {
-		logger.Fatal("http.Serve: %s", err)
+		glog.Fatalf("http.Serve: %s", err)
 	}
 }

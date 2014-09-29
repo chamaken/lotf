@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/chamaken/logger"
 	"github.com/chamaken/lotf"
+	"github.com/golang/glog"
 	"net"
 )
 
@@ -26,10 +26,10 @@ func serve(conn net.Conn, t lotf.Tail, errch chan<- error) {
 	for s := t.WaitNext(); s != nil; s = t.WaitNext() {
 		b := []byte(fmt.Sprintf("%s\n", *s))
 		if n, err := conn.Write(b); err != nil {
-			logger.Error("write error to [%s]: %s", conn.RemoteAddr(), err)
+			glog.Errorf("write error to [%s]: %s", conn.RemoteAddr(), err)
 			break
 		} else if n != len(b) {
-			logger.Warning("could not write at once, writing: %d, written: %d", len(b), n)
+			glog.Infof("could not write at once, writing: %d, written: %d", len(b), n)
 		}
 	}
 }
@@ -46,19 +46,19 @@ func (svr *StreamServer) Run(errch chan<- error) {
 			break
 		}
 		if err != nil {
-			logger.Error("listener accept: %s", err)
+			glog.Errorf("listener accept: %s", err)
 			errch <- err
 		} else {
 			go serve(conn, svr.tail.Clone(), errch)
 		}
 	}
-	logger.Info("exit Run gracefully")
+	glog.Info("exit Run gracefully")
 }
 
 func (svr *StreamServer) Done() error {
 	svr.done <- true
 	if err := svr.listener.Close(); err != nil {
-		logger.Warning("failed to close: %s", err)
+		glog.Infof("failed to close: %s", err)
 		return err
 	}
 	return nil
