@@ -10,9 +10,20 @@ import (
 	"time"
 )
 
+const TMP_PREFIX = "_lotf_tmp"
+
+func init() {
+	dir, _ := ioutil.TempDir("", TMP_PREFIX)
+	parent := filepath.Dir(dir)
+	globs, _ := filepath.Glob(filepath.Join(parent, TMP_PREFIX+"*"))
+	for _, d := range globs {
+		os.RemoveAll(d)
+	}
+}
+
 func TestFileLines(t *testing.T) {
 	// prepare
-	dir, err := ioutil.TempDir("", "lotf")
+	dir, err := ioutil.TempDir("", TMP_PREFIX)
 	if err != nil {
 		t.Fatalf("TempDir failed: %s", err)
 	}
@@ -114,7 +125,7 @@ func TestFileLines(t *testing.T) {
 
 func TestFileLinesFilter(t *testing.T) {
 	// prepare
-	dir, err := ioutil.TempDir("", "lotf")
+	dir, err := ioutil.TempDir("", TMP_PREFIX)
 	if err != nil {
 		t.Fatalf("TempDir failed: %s", err)
 	}
@@ -177,7 +188,7 @@ func TestFileLinesFilter(t *testing.T) {
 
 func TestTailWatcher(t *testing.T) {
 	// prepare
-	dir, err := ioutil.TempDir("", "lotf")
+	dir, err := ioutil.TempDir("", TMP_PREFIX)
 	if err != nil {
 		t.Fatalf("TempDir failed: %s", err)
 	}
@@ -235,7 +246,7 @@ func TestTailWatcher(t *testing.T) {
 
 func TestTailAdd(t *testing.T) {
 	// prepare
-	dir, err := ioutil.TempDir("", "lotf")
+	dir, err := ioutil.TempDir("", TMP_PREFIX)
 	if err != nil {
 		t.Fatalf("TempDir failed: %s", err)
 	}
@@ -333,7 +344,7 @@ func TestTailAdd(t *testing.T) {
 
 func TestTailRemoveCreate(t *testing.T) {
 	// prepare
-	dir, err := ioutil.TempDir("", "lotf")
+	dir, err := ioutil.TempDir("", TMP_PREFIX)
 	if err != nil {
 		t.Fatalf("TempDir failed: %s", err)
 	}
@@ -407,7 +418,7 @@ func TestTailRemoveCreate(t *testing.T) {
 
 func TestFilesInSameDir(t *testing.T) {
 	// prepare
-	dir, err := ioutil.TempDir("", "lotf")
+	dir, err := ioutil.TempDir("", TMP_PREFIX)
 	if err != nil {
 		t.Fatalf("TempDir failed: %s", err)
 	}
@@ -492,7 +503,7 @@ func TestFilesInSameDir(t *testing.T) {
 
 func TestLookup(t *testing.T) {
 	// prepare
-	dir, err := ioutil.TempDir("", "lotf")
+	dir, err := ioutil.TempDir("", TMP_PREFIX)
 	if err != nil {
 		t.Fatalf("TempDir failed: %s", err)
 	}
@@ -549,7 +560,7 @@ func TestLookup(t *testing.T) {
 }
 
 func TestLastZero(t *testing.T) {
-	dir, err := ioutil.TempDir("", "lotf")
+	dir, err := ioutil.TempDir("", TMP_PREFIX)
 	if err != nil {
 		t.Fatalf("TempDir failed: %s", err)
 	}
@@ -588,7 +599,7 @@ func TestLastZero(t *testing.T) {
 }
 
 func TestParentDisappear(t *testing.T) {
-	dir, err := ioutil.TempDir("", "lotf")
+	dir, err := ioutil.TempDir("", TMP_PREFIX)
 	if err != nil {
 		t.Fatalf("TempDir failed: %s", err)
 	}
