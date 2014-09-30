@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 )
@@ -248,9 +249,6 @@ func (tail *TailName) handleModify(errch chan<- error) {
 	// XXX: else if fi.Size() < tail.lastp { reread from first? }
 }
 
-func (tail *TailName) handleParentDisappear(errch chan<- error) {
-}
-
 func (tail *TailName) Name() string {
 	return tail.name
 }
@@ -304,7 +302,7 @@ func (tail *TailName) String() string {
 
 type TailWatcher struct {
 	watch *inotify.Watcher
-	tails map[string]*TailName // key: abs pathname
+	tails map[string]*TailName // key: abs pathname or parent dirname if TailName is nil
 	dirs  map[string]int       // key: dirname, value: refcount
 	mu    sync.Mutex           // to sync tails map
 	Error <-chan error
@@ -334,6 +332,7 @@ func NewTailWatcher() (*TailWatcher, error) {
 // Watcher event dispatcher
 func (tw *TailWatcher) follow() {
 	for ev := range tw.watch.Event {
+		// need Lock?
 		tail, found := tw.tails[ev.Name]
 		if !found {
 			continue
@@ -346,13 +345,22 @@ func (tw *TailWatcher) follow() {
 		case ev.Mask&inotify.IN_MODIFY != 0:
 			tail.handleModify(tw.watch.Error)
 		case ev.Mask&(inotify.IN_DELETE_SELF|inotify.IN_MOVE_SELF) != 0:
-			tail.handleParentDisappear(tw.watch.Error)
+			tw.handleParentDisappear(ev.Name, tw.watch.Error)
 		}
 	}
 }
 
 func (tw *TailWatcher) Close() error {
+	if err := tw.watch.Close(); err != nil {
+		return err
+	}
+
+	tw.mu.Lock()
+	defer tw.mu.Unlock()
 	for _, tail := range tw.tails {
+		if tail == nil { // parent directory
+			continue
+		}
 		tail.lines.Done()
 		if tail.file == nil {
 			continue
@@ -363,8 +371,10 @@ func (tw *TailWatcher) Close() error {
 			}
 			return err
 		}
+		tail.file = nil
+		// XXX: delete this and dirs?
 	}
-	return tw.watch.Close()
+	return nil
 }
 
 func (tw *TailWatcher) Add(pathname string, maxline int, filter Filter, lines int) (Tail, error) {
@@ -483,6 +493,7 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter Filter, lines in
 			goto ERR_CLOSE
 		}
 		tw.dirs[dirname] = 1
+		tw.tails[dirname] = nil
 	} else {
 		tw.dirs[dirname] = refcnt + 1
 	}
@@ -507,7 +518,8 @@ func (tw *TailWatcher) Lookup(pathname string) (Tail, error) {
 
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
-	if tail, found := tw.tails[absname]; found {
+	// tail == nil means parent directory
+	if tail, found := tw.tails[absname]; tail != nil && found {
 		return tail.Clone(), nil
 	}
 	return nil, fmt.Errorf("no such a watcher: %s", absname)
@@ -527,7 +539,7 @@ func (tw *TailWatcher) Remove(pathname string) error {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
 	tail, found := tw.tails[absname]
-	if !found {
+	if !found || tail == nil {
 		return fmt.Errorf("no such a watcher: %s", absname)
 	}
 	refcnt, found := tw.dirs[dirname]
@@ -560,4 +572,30 @@ func (tw *TailWatcher) Remove(pathname string) error {
 		tw.dirs[dirname] = refcnt - 1
 	}
 	return nil
+}
+
+func (tw *TailWatcher) handleParentDisappear(dname string, errch chan<- error) {
+	glog.Errorf("parent directory disappeared: %s", dname)
+	tw.mu.Lock()
+	defer tw.mu.Unlock()
+
+	for name, tail := range tw.tails {
+		if !strings.HasPrefix(name, dname) {
+			continue
+		}
+		delete(tw.tails, name)
+		if tail == nil {
+			continue
+		}
+		tail.lines.Done()
+		if tail.file != nil {
+			if err := tail.file.Close(); err != nil {
+				if glog.V(1) {
+					glog.Infof("File.Close(): %s", err)
+				}
+				errch <- err
+			}
+		}
+	}
+	delete(tw.dirs, dname)
 }

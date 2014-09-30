@@ -342,29 +342,27 @@ func TestTailRemoveCreate(t *testing.T) {
 	fname := filepath.Join(dir, "TailWatcher.testfile")
 	tmpfname := filepath.Join(dir, "TailWatcher.tmpfile")
 
-	testFile, err := os.OpenFile(fname, os.O_RDWR|os.O_CREATE, 0666)
+	testFile1, err := os.OpenFile(fname, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		t.Fatalf("failed to create testFile: %s", err)
 	}
+	defer testFile1.Close()
 	// file contains 6 lines - a b c d e f
-	if _, err = testFile.WriteString("ABCDEFGHIJKLMNOPQRSTUVWXYZa\nb\nc\nd\ne\nf\n"); err != nil {
+	if _, err = testFile1.WriteString("ABCDEFGHIJKLMNOPQRSTUVWXYZa\nb\nc\nd\ne\nf\n"); err != nil {
 		t.Fatalf("write testFile failed: %s", err)
 	}
-	testFile.Close()
 
-	// constructor
 	tw, err := NewTailWatcher()
 	if err != nil {
 		t.Fatalf("could not create TailWatcher: %s", err)
 	}
 	defer tw.Close()
-
-	// error handling
 	go func() {
 		for err := range tw.Error {
 			t.Fatalf("error received: %s", err)
 		}
 	}()
+
 	tail, err := tw.Add(fname, 5, nil, 5)
 	if err != nil {
 		t.Fatalf("failed to Add to TailWatcher: %v", err)
@@ -383,14 +381,14 @@ func TestTailRemoveCreate(t *testing.T) {
 		t.Fatalf("failed to rename testfile: %s", err)
 	}
 	// and recreate with lines - 1 2 3 4 5 6
-	testFile, err = os.OpenFile(fname, os.O_RDWR|os.O_CREATE, 0666)
+	testFile2, err := os.OpenFile(fname, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		t.Fatalf("failed to create testFile: %s", err)
 	}
-	if _, err = testFile.WriteString("1\n2\n3\n4\n5\n6\n"); err != nil {
+	defer testFile2.Close()
+	if _, err = testFile2.WriteString("1\n2\n3\n4\n5\n6\n"); err != nil {
 		t.Fatalf("write testFile failed: %s", err)
 	}
-	defer testFile.Close()
 
 	for i := 0; i < 6; i++ {
 		s += *tail.WaitNext()
@@ -399,7 +397,7 @@ func TestTailRemoveCreate(t *testing.T) {
 		t.Fatalf("expect bcdef123456 but got: %s\n", s)
 	}
 
-	if _, err = testFile.WriteString("7\n"); err != nil {
+	if _, err = testFile2.WriteString("7\n"); err != nil {
 		t.Fatalf("write testFile failed: %s", err)
 	}
 	if *tail.WaitNext() != "7" {
@@ -415,6 +413,7 @@ func TestFilesInSameDir(t *testing.T) {
 	}
 	t.Logf("tmpdir: %s", dir)
 	defer os.RemoveAll(dir)
+
 	// create 10 files in a same dir
 	var testFiles [10]*os.File
 	for i := 0; i < 10; i++ {
@@ -427,22 +426,12 @@ func TestFilesInSameDir(t *testing.T) {
 			t.Fatalf("failed to WriteString to testFile: %s", err)
 		}
 	}
-	defer func() {
-		for i := 2; i < 10; i++ {
-			if err := testFiles[i].Close(); err != nil {
-				t.Fatalf("failed to close testFile: %s", err)
-			}
-		}
-	}()
 
-	// constructor
 	tw, err := NewTailWatcher()
 	if err != nil {
 		t.Fatalf("could not create TailWatcher: %s", err)
 	}
 	defer tw.Close()
-
-	// error handling
 	go func() {
 		for err := range tw.Error {
 			t.Fatalf("error received: %s", err)
@@ -464,54 +453,40 @@ func TestFilesInSameDir(t *testing.T) {
 		}
 	}
 
-	if _, err = testFiles[0].WriteString("TEST0\ntest0"); err != nil {
-		t.Fatalf("write testFile failed: %s", err)
-	}
-	if _, err = testFiles[1].WriteString("TEST1\ntest1"); err != nil {
-		t.Fatalf("write testFile failed: %s", err)
-	}
-	if _, err = testFiles[2].WriteString("TEST2\ntest2"); err != nil {
-		t.Fatalf("write testFile failed: %s", err)
-	}
-	tailch := make(chan *string)
-	var line *string
-	go func() {
-		tailch <- tails[2].WaitNext()
-	}()
-	select {
-	case line = <-tailch:
-		if *line != "TEST2" {
-			t.Fatal("expect string TEST2, but got: %s", line)
+	for i := 0; i < 10; i++ {
+		s := fmt.Sprintf("TEST%d\ntest%d", i, i)
+		if _, err = testFiles[i].WriteString(s); err != nil {
+			t.Fatalf("write testFile failed: %s", err)
 		}
-	case <-time.After(1 * time.Second):
-		t.Fatal("timed out. no line returned")
 	}
 
-	if *(tails[0].WaitNext()) != "TEST0" {
-		t.Fatal("expect string TEST0, but got: %s", line)
-	}
-	if *(tails[1].WaitNext()) != "TEST1" {
-		t.Fatal("expect string TEST0, but got: %s", line)
+	for i := 0; i < 10; i++ {
+		p := tails[i].WaitNext()
+		if p == nil {
+			t.Fatal("expect valid pointer, but got nil")
+		}
+		s := fmt.Sprintf("TEST%d", i)
+		if *p != s {
+			t.Fatalf("expect string %s, but got: %s", s, *p)
+		}
 	}
 
 	// delete file and read the rest
-	if err = testFiles[0].Close(); err != nil {
-		t.Fatalf("failed to close testFile: %s", err)
-	}
-	if err = os.Remove(testFiles[0].Name()); err != nil {
-		t.Fatalf("failed to remove testFile: %s", err)
-	}
-	if *(tails[0].WaitNext()) != "test0" {
-		t.Fatal("expect string TEST0, but got: %s", line)
-	}
-	if err = testFiles[1].Close(); err != nil {
-		t.Fatalf("failed to close testFile: %s", err)
-	}
-	if err = os.Remove(testFiles[1].Name()); err != nil {
-		t.Fatalf("failed to remove testFile: %s", err)
-	}
-	if *(tails[1].WaitNext()) != "test1" {
-		t.Fatal("expect string TEST0, but got: %s", line)
+	for i := 0; i < 10; i++ {
+		if err = testFiles[i].Close(); err != nil {
+			t.Fatalf("failed to close testFile: %s", err)
+		}
+		if err = os.Remove(testFiles[i].Name()); err != nil {
+			t.Fatalf("failed to remove testFile: %s", err)
+		}
+		p := tails[i].WaitNext()
+		if p == nil {
+			t.Fatal("expect valid pointer, but got nil")
+		}
+		s := fmt.Sprintf("test%d", i)
+		if *p != s {
+			t.Fatalf("expect string %s, but got: %s", s, *p)
+		}
 	}
 }
 
@@ -538,6 +513,11 @@ func TestLookup(t *testing.T) {
 		t.Fatalf("could not create TailWatcher: %s", err)
 	}
 	defer tw.Close()
+	go func() {
+		for err := range tw.Error {
+			t.Fatalf("error received: %s", err)
+		}
+	}()
 
 	tail, err := tw.Add(fname, 5, nil, 5)
 	if err != nil {
@@ -590,6 +570,11 @@ func TestLastZero(t *testing.T) {
 		t.Fatalf("could not create TailWatcher: %s", err)
 	}
 	defer tw.Close()
+	go func() {
+		for err := range tw.Error {
+			t.Fatalf("error received: %s", err)
+		}
+	}()
 
 	tail, err := tw.Add(fname, 1, nil, 0)
 	if err != nil {
@@ -599,5 +584,83 @@ func TestLastZero(t *testing.T) {
 	s := tail.Next()
 	if s != nil {
 		t.Fatalf("expect nil but got: %s", *s)
+	}
+}
+
+func TestParentDisappear(t *testing.T) {
+	dir, err := ioutil.TempDir("", "lotf")
+	if err != nil {
+		t.Fatalf("TempDir failed: %s", err)
+	}
+	defer os.RemoveAll(dir)
+
+	// create 10 removing parent dirs in the tmpdir
+	// and two files in a removing dir
+	var testDirs [10]string
+	var testFiles [20]*os.File
+	for i := 0; i < 10; i++ {
+		testDirs[i], err = ioutil.TempDir(dir, "rmtest")
+		if err != nil {
+			t.Fatalf("failed to create testDir: %s", err)
+		}
+		if testFiles[i], err = os.OpenFile(filepath.Join(testDirs[i], "TailWatcher1"),
+			os.O_RDWR|os.O_CREATE, 0666); err != nil {
+			t.Fatalf("failed to create testFile: %s", err)
+		}
+		if err := testFiles[i].Close(); err != nil {
+			t.Fatalf("failed to close testFile: %s", err)
+		}
+		if testFiles[i+10], err = os.OpenFile(filepath.Join(testDirs[i], "TailWatcher2"),
+			os.O_RDWR|os.O_CREATE, 0666); err != nil {
+			t.Fatalf("failed to create testFile: %s", err)
+		}
+		if err := testFiles[i+10].Close(); err != nil {
+			t.Fatalf("failed to close testFile: %s", err)
+		}
+	}
+
+	tw, err := NewTailWatcher()
+	if err != nil {
+		t.Fatalf("could not create TailWatcher: %s", err)
+	}
+	defer func() {
+		t.Logf("-------- call tw.Close()")
+		// tw.Close()
+		t.Logf("-------- returned tw.Close()")
+	}()
+	go func() {
+		for err := range tw.Error {
+			t.Fatalf("error received: %s", err)
+		}
+	}()
+
+	for i := 0; i < 20; i++ {
+		if _, err = tw.Add(testFiles[i].Name(), 1, nil, 0); err != nil {
+			t.Fatalf("failed to Add to TailWatcher: %s", err)
+		}
+	}
+	// checking
+	if len(tw.tails) != 30 { // 20 files 10 parent dirs
+		t.Fatalf("len(tails) should be 20, but got: %d", len(tw.tails))
+	}
+	if len(tw.dirs) != 10 {
+		t.Fatalf("len(dirs) should be 10, but got: %d", len(tw.dirs))
+	}
+
+	// remove a few
+	for i := 0; i < 3; i++ {
+		if err = os.RemoveAll(testDirs[i]); err != nil {
+			t.Fatalf("failed to RemoveAll: %s", err)
+		}
+	}
+	// wait receiving events above.
+	time.Sleep(100 * time.Millisecond)
+
+	// check again
+	if len(tw.tails) != 21 { // 7 dirs remainded
+		t.Fatalf("len(tails) should be 14, but got: %d", len(tw.tails))
+	}
+	if len(tw.dirs) != 7 {
+		t.Fatalf("len(dirs) should be 7, but got: %d", len(tw.dirs))
 	}
 }
