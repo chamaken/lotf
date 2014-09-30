@@ -351,6 +351,9 @@ func (tw *TailWatcher) follow() {
 }
 
 func (tw *TailWatcher) Close() error {
+	if tw.watch == nil {
+		return os.NewSyscallError("closed", syscall.EBADF)
+	}
 	if err := tw.watch.Close(); err != nil {
 		return err
 	}
@@ -371,13 +374,19 @@ func (tw *TailWatcher) Close() error {
 			}
 			return err
 		}
-		tail.file = nil
-		// XXX: delete this and dirs?
 	}
+	tw.tails = nil
+	tw.dirs = nil
+	tw.watch = nil
+
 	return nil
 }
 
 func (tw *TailWatcher) Add(pathname string, maxline int, filter Filter, lines int) (Tail, error) {
+	if tw.watch == nil {
+		return nil, os.NewSyscallError("closed", syscall.EBADF)
+	}
+
 	var tail *TailName
 	var absname string // TailName.name
 	var dirname string // watch dir name
@@ -507,6 +516,10 @@ ERR_CLOSE:
 }
 
 func (tw *TailWatcher) Lookup(pathname string) (Tail, error) {
+	if tw.watch == nil {
+		return nil, os.NewSyscallError("closed", syscall.EBADF)
+	}
+
 	// normalize pathname
 	absname, err := filepath.Abs(pathname)
 	if err != nil {
@@ -526,6 +539,10 @@ func (tw *TailWatcher) Lookup(pathname string) (Tail, error) {
 }
 
 func (tw *TailWatcher) Remove(pathname string) error {
+	if tw.watch == nil {
+		return os.NewSyscallError("closed", syscall.EBADF)
+	}
+
 	// normalize pathname
 	absname, err := filepath.Abs(pathname)
 	if err != nil {
