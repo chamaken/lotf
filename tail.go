@@ -256,11 +256,12 @@ func (tail *TailName) Name() string {
 }
 
 func (tail *TailName) WaitNext() *string {
-	tail.current = tail.current.WaitNext()
-	if tail.current == nil { // TailWatcher has closed
+	next := tail.current.WaitNext()
+	if next == nil { // TailWatcher has closed
 		// XXX: what should do after Remove()
 		return nil
 	}
+	tail.current = next
 	s := tail.current.Value.(string)
 	return &s
 }
