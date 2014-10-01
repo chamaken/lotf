@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 )
@@ -18,108 +17,6 @@ func init() {
 	globs, _ := filepath.Glob(filepath.Join(parent, TMP_PREFIX+"*"))
 	for _, d := range globs {
 		os.RemoveAll(d)
-	}
-}
-
-func TestFileLines(t *testing.T) {
-	// prepare
-	dir, err := ioutil.TempDir("", TMP_PREFIX)
-	if err != nil {
-		t.Fatalf("TempDir failed: %s", err)
-	}
-	t.Logf("tmpdir: %s", dir)
-	defer os.RemoveAll(dir)
-	testFile, err := os.OpenFile(filepath.Join(dir, "TestFileLines.testfile"), os.O_RDWR|os.O_CREATE, 0666)
-	if err != nil {
-		t.Fatalf("testFile failed: %s", err)
-	}
-
-	// 4 empty lines
-	if err = testFile.Truncate(0); err != nil {
-		t.Fatalf("truncate testFile failed: %s", err)
-	}
-	if _, err = testFile.Seek(0, os.SEEK_SET); err != nil {
-		t.Fatalf("seek testFile failed: %s", err)
-	}
-	if _, err = testFile.WriteString("\n\n\n\n"); err != nil {
-		t.Fatalf("write testFile failed: %s", err)
-	}
-
-	//  0 1 2 3
-	// "\n\n\n\n"
-
-	// tail -n0
-	pos, err := FileLines(testFile, 0)
-	if err != nil {
-		t.Fatalf("should returns error")
-	}
-
-	// tail -n1
-	if pos, err = FileLines(testFile, 1); err != nil {
-		t.Fatalf("FileLines failed: %s", err)
-	}
-	if pos != 3 {
-		t.Fatalf("tail 1 should return: 3, but: %d", pos)
-	}
-
-	// tail -n3
-	if pos, err = FileLines(testFile, 3); err != nil {
-		t.Fatalf("FileLines failed: %s", err)
-	}
-	if pos != 1 {
-		t.Fatalf("tail 3 should return: 1, but: %d", pos)
-	}
-
-	// tail -n4
-	if pos, err = FileLines(testFile, 4); err != nil {
-		t.Fatalf("FileLines failed: %s", err)
-	}
-	if pos != 0 {
-		t.Fatalf("tail 4 should return: 0, but: %d", pos)
-	}
-
-	// tail -n10
-	if pos, err = FileLines(testFile, 10); err != nil {
-		t.Fatalf("FileLines failed: %s", err)
-	}
-	if pos != 0 {
-		t.Fatalf("tail 10 should return: 0, but: %d", pos)
-	}
-
-	// 4 empty lines, ended with no newline spaces
-	if err = testFile.Truncate(0); err != nil {
-		t.Fatal("truncate testFile failed: %s", err)
-	}
-	if _, err = testFile.Seek(0, os.SEEK_SET); err != nil {
-		t.Fatalf("seek testFile failed: %s", err)
-	}
-	if _, err = testFile.WriteString("\n\n\n\n   "); err != nil {
-		t.Fatalf("write testFile failed: %s", err)
-	}
-	// tail -n1
-	if pos, err = FileLines(testFile, 1); err != nil {
-		t.Fatalf("FileLines failed: %s", err)
-	}
-	if pos != 3 {
-		t.Fatalf("tail 1 should return: 3, but: %d", pos)
-	}
-
-	// file filled with "a" in BUSIZE - 1 plus 4 empty lines
-	if err = testFile.Truncate(0); err != nil {
-		t.Fatal("truncate testFile failed: %s", err)
-	}
-	if _, err = testFile.Seek(0, os.SEEK_SET); err != nil {
-		t.Fatalf("seek testFile failed: %s", err)
-	}
-	s := strings.Repeat("a", BUFSIZ-1) + "\n\n\n\n"
-	if _, err = testFile.WriteString(s); err != nil {
-		t.Fatalf("write testFile failed: %s", err)
-	}
-	if pos, err = FileLines(testFile, 3); err != nil {
-		t.Fatalf("FileLines failed: %s", err)
-	}
-	if pos != BUFSIZ {
-		t.Fatalf("tail 1 should return: %d, but: %d", BUFSIZ, pos)
 	}
 }
 

@@ -2,9 +2,8 @@ package lotf
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
-	inotify "github.com/chamaken/inotify"
+	"github.com/chamaken/fsnotify" // use inotify branch
 	"github.com/golang/glog"
 	"io"
 	"os"
@@ -15,113 +14,8 @@ import (
 )
 
 const (
-	BUFSIZ       = 8192
-	INOTIFY_MASK = inotify.IN_DELETE_SELF | inotify.IN_MOVE_SELF | inotify.IN_CREATE | inotify.IN_MOVE | inotify.IN_DELETE | inotify.IN_MODIFY
+	BUFSIZ = 8192
 )
-
-// tail -- output the last part of file(s)
-// Copyright (C) 1989-2014 Free Software Foundation, Inc.
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-// FileLines sets the offset to nLines lines from the last. This does not means
-// EOF if the file is ended with no newline.
-func FileLines(file *os.File, nLines int) (int64, error) {
-	if nLines < 0 {
-		return -1, syscall.EINVAL
-	}
-
-	fi, err := file.Stat()
-	if err != nil {
-		if glog.V(1) {
-			glog.Infof("File.Stat(): %s", err)
-		}
-		return -1, err
-	}
-	if fi.Sys().(*syscall.Stat_t).Mode&syscall.S_IFMT != syscall.S_IFREG {
-		return -1, fmt.Errorf("support regular file only")
-	}
-
-	pos := fi.Size()
-	if pos == 0 {
-		return 0, nil
-	}
-	buffer := make([]byte, BUFSIZ)
-	var bytesRead int
-
-	// Set 'bytesRead' to the size of the last, probably partial, buffer;
-	// 0 < 'bytesRead' <= 'BUFSIZ'
-	bytesRead = int(pos % BUFSIZ)
-	if bytesRead == 0 {
-		bytesRead = BUFSIZ
-	}
-
-	// Make 'pos' a multiple of 'BUFSIZ' (0 if the file is short), so that all
-	// reads will be on block (BUFSIZ) boundaries, which might increase efficiency.
-	pos -= int64(bytesRead)
-	if _, err := file.Seek(pos, os.SEEK_SET); err != nil {
-		if glog.V(1) {
-			glog.Infof("File.Seek(%d, SEEK_SET): %s", pos, err)
-		}
-		return -1, err
-	}
-	if bytesRead, err = file.Read(buffer[:bytesRead]); err != nil {
-		if glog.V(1) {
-			glog.Infof("File.Read(): %s", err)
-		}
-		return -1, err
-	}
-
-	// Not decrement incomplete line
-
-	var nlPos int
-LOOP:
-	for {
-		nlPos = bytesRead
-		for nlPos != 0 { // in case of buffer[0] == '\n'
-			prevNL := nlPos
-			nlPos = bytes.LastIndex(buffer[:prevNL], []byte("\n"))
-			if nlPos == -1 {
-				break
-			}
-			if nLines == 0 {
-				break LOOP
-			}
-			nLines--
-		}
-		if pos == 0 {
-			// Just start or not enough lines in the file
-			return file.Seek(0, os.SEEK_SET)
-		}
-		pos -= BUFSIZ
-		if _, err = file.Seek(pos, os.SEEK_SET); err != nil {
-			if glog.V(1) {
-				glog.Infof("File.Seek(%d, SEEK_SET): %s", pos, err)
-			}
-			return -1, err
-		}
-
-		if bytesRead, err = file.Read(buffer); err != nil {
-			if glog.V(1) {
-				glog.Infof("File.Read(): %s", err)
-			}
-			return -1, err
-		}
-	}
-
-	return file.Seek(pos+int64(nlPos+1), os.SEEK_SET)
-}
 
 type TailName struct {
 	name    string   // file absname
@@ -301,7 +195,7 @@ func (tail *TailName) String() string {
 }
 
 type TailWatcher struct {
-	watch *inotify.Watcher
+	watch *fsnotify.Watcher
 	tails map[string]*TailName // key: abs pathname or parent dirname if TailName is nil
 	dirs  map[string]int       // key: dirname, value: refcount
 	mu    sync.Mutex           // to sync tails map
@@ -310,10 +204,10 @@ type TailWatcher struct {
 
 // TailWatcher constructor
 func NewTailWatcher() (*TailWatcher, error) {
-	watcher, err := inotify.NewWatcher()
+	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		if glog.V(1) {
-			glog.Infof("inotify.NewWatcher(): %s", err)
+			glog.Infof("fsnotify.NewWatcher(): %s", err)
 		}
 		return nil, err
 	}
@@ -323,7 +217,7 @@ func NewTailWatcher() (*TailWatcher, error) {
 		make(map[string]*TailName),
 		make(map[string]int),
 		*new(sync.Mutex),
-		watcher.Error,
+		watcher.Errors,
 	}
 	go tw.follow()
 	return tw, nil
@@ -331,21 +225,23 @@ func NewTailWatcher() (*TailWatcher, error) {
 
 // Watcher event dispatcher
 func (tw *TailWatcher) follow() {
-	for ev := range tw.watch.Event {
+	for ev := range tw.watch.Events {
 		// need Lock?
 		tail, found := tw.tails[ev.Name]
 		if !found {
 			continue
 		}
 		switch {
-		case ev.Mask&inotify.IN_CREATE != 0:
-			tail.handleCreate(tw.watch.Error)
-		case ev.Mask&(inotify.IN_DELETE|inotify.IN_MOVE) != 0:
-			tail.handleDisappear(tw.watch.Error)
-		case ev.Mask&inotify.IN_MODIFY != 0:
-			tail.handleModify(tw.watch.Error)
-		case ev.Mask&(inotify.IN_DELETE_SELF|inotify.IN_MOVE_SELF) != 0:
-			tw.handleParentDisappear(ev.Name, tw.watch.Error)
+		case ev.Op&fsnotify.Create != 0:
+			tail.handleCreate(tw.watch.Errors)
+		case ev.Op&(fsnotify.Remove|fsnotify.Rename) != 0:
+			if tail == nil { // parent directory
+				tw.handleParentDisappear(ev.Name, tw.watch.Errors)
+			} else {
+				tail.handleDisappear(tw.watch.Errors)
+			}
+		case ev.Op&fsnotify.Write != 0:
+			tail.handleModify(tw.watch.Errors)
 		}
 	}
 }
@@ -490,11 +386,7 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter Filter, lines in
 		goto ERR_CLOSE
 	}
 	if refcnt, found := tw.dirs[dirname]; !found {
-		err = tw.watch.AddWatchFilter(dirname, INOTIFY_MASK,
-			func(e *inotify.Event) bool {
-				_, found := tw.tails[e.Name]
-				return found
-			})
+		err = tw.watch.Add(dirname)
 		if err != nil {
 			if glog.V(1) {
 				glog.Infof("AddWatchFilter(): %s", err)
@@ -577,9 +469,9 @@ func (tw *TailWatcher) Remove(pathname string) error {
 	delete(tw.tails, absname)
 
 	if refcnt == 1 { // the last one
-		if err := tw.watch.RemoveWatch(dirname); err != nil {
+		if err := tw.watch.Remove(dirname); err != nil {
 			if glog.V(1) {
-				glog.Infof("inotify.RemoveWatch(): %s", err)
+				glog.Infof("fsnotify.Remove(): %s", err)
 			}
 			return err
 		}
