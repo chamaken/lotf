@@ -345,14 +345,6 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter Filter, lines in
 		goto ERR_CLOSE
 	}
 
-	tail = &TailName{
-		name:    absname,
-		lastp:   pos,
-		lines:   q,
-		filter:  filter,
-		current: q.head,
-	}
-
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
 
@@ -374,13 +366,19 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter Filter, lines in
 	} else {
 		tw.dirs[dirname] = refcnt + 1
 	}
-	tw.tails[absname] = tail
 
-	return tail, nil
+	tail = &TailName{
+		name:    absname,
+		lastp:   pos,
+		lines:   q,
+		filter:  filter,
+		current: q.head,
+	}
+	tw.tails[absname] = tail
 
 ERR_CLOSE:
 	file.Close()
-	return nil, err
+	return tail, err
 }
 
 func (tw *TailWatcher) Lookup(pathname string) (Tail, error) {
