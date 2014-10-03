@@ -18,11 +18,10 @@ const (
 )
 
 type TailName struct {
-	name    string   // file absname
-	file    *os.File // watching file
-	lastp   int64    // file position last newline after 1
-	lines   *Blockq  // stores lines with no NL
-	filter  Filter   // lines is not store if this returns false
+	name    string  // file absname
+	lastp   int64   // file position last newline after 1
+	lines   *Blockq // stores lines with no NL
+	filter  Filter  // lines is not store if this returns false
 	current *Element
 }
 
@@ -42,12 +41,22 @@ func (tail *TailName) readlines(errch chan<- error) {
 	var line []byte
 	var err error
 
-	if _, err = tail.file.Seek(tail.lastp, os.SEEK_SET); err != nil {
+	tail_file, err := os.Open(tail.name)
+	if err != nil {
+		errch <- err
+		return
+	}
+	defer func() {
+		if err := tail_file.Close(); err != nil {
+			errch <- err
+		}
+	}()
+	if _, err = tail_file.Seek(tail.lastp, os.SEEK_SET); err != nil {
 		glog.Infof("File.Seek(%d, SEEK_SET): %s", tail.lastp, err)
 		errch <- err
 		return
 	}
-	r := bufio.NewReader(tail.file)
+	r := bufio.NewReader(tail_file)
 	for {
 		line, err = r.ReadBytes(byte('\n'))
 		if err == io.EOF {
@@ -69,20 +78,22 @@ func (tail *TailName) readlines(errch chan<- error) {
 func (tail *TailName) handleCreate(errch chan<- error) {
 	var err error
 
-	if tail.file != nil {
+	if tail.lastp != -1 {
 		errch <- fmt.Errorf("open already opened file")
-		if err := tail.file.Close(); err != nil {
-			glog.Infof("File.Close(): %s", err)
-			errch <- err
-		}
 	}
 
-	tail.file, err = os.Open(tail.name)
+	tail_file, err := os.Open(tail.name)
 	if err != nil {
 		glog.Infof("File.Open(%s): %s", tail.name, err)
 		errch <- err
 		return
 	}
+	defer func() {
+		if err := tail_file.Close(); err != nil {
+			errch <- err
+		}
+	}()
+
 	tail.lastp = 0
 	tail.readlines(errch)
 }
@@ -91,47 +102,23 @@ func (tail *TailName) handleCreate(errch chan<- error) {
 // was not ended with newline so that the last line will store only in the case.
 // This function close tail.file and invalidate it after that.
 func (tail *TailName) handleDisappear(errch chan<- error) {
-	fi, err := tail.file.Stat()
-	if err != nil {
-		glog.Infof("File.Stat(): %s", err)
-		errch <- err
-		return
-	}
-	// read unfinished one line
-	for fi.Size() > tail.lastp {
-		if _, err = tail.file.Seek(tail.lastp, os.SEEK_SET); err != nil {
-			glog.Infof("File.Seek(%d, SEEK_SET): %s", tail.lastp, err)
-			errch <- err
-		}
-		r := bufio.NewReader(tail.file)
-		line, err := r.ReadBytes(byte('\n'))
-		// add line even if it does not end with LF
-		if err != nil && err != io.EOF {
-			glog.Infof("File.ReadBytes(): %s", err)
-			errch <- err
-		}
-		if tail.filter == nil || tail.filter.Filter(string(line[:len(line)-1])) {
-			if line[len(line)-1] == byte('\n') {
-				tail.lines.Add(string(line[:len(line)-1]))
-			} else {
-				tail.lines.Add(string(line))
-			}
-		}
-		tail.lastp += int64(len(line))
-	}
-
-	// close and invalidate TailName.file
-	if err = tail.file.Close(); err != nil {
-		glog.Infof("File.Close(): %s", err)
-		errch <- err
-	}
-	tail.file = nil
+	tail.lastp = -1
 }
 
 // IN_MODIFY event handler. This function checks file size and store lines if the file
 // was grown up.
 func (tail *TailName) handleModify(errch chan<- error) {
-	fi, err := tail.file.Stat()
+	tail_file, err := os.Open(tail.name)
+	if err != nil {
+		errch <- err
+		return
+	}
+	defer func() {
+		if err := tail_file.Close(); err != nil {
+			errch <- err
+		}
+	}()
+	fi, err := tail_file.Stat()
 	if err != nil {
 		glog.Infof("File.Stat(): %s", err)
 		errch <- err
@@ -175,7 +162,6 @@ func (tail *TailName) Reset() {
 func (tail *TailName) Clone() Tail {
 	return &TailName{
 		name:    tail.name,
-		file:    tail.file,
 		lastp:   tail.lastp,
 		lines:   tail.lines,
 		filter:  tail.filter,
@@ -261,15 +247,6 @@ func (tw *TailWatcher) Close() error {
 			continue
 		}
 		tail.lines.Done()
-		if tail.file == nil {
-			continue
-		}
-		if err := tail.file.Close(); err != nil {
-			if glog.V(1) {
-				glog.Infof("File.Close(): %s", err)
-			}
-			return err
-		}
 	}
 	tw.tails = nil
 	tw.dirs = nil
@@ -370,7 +347,6 @@ func (tw *TailWatcher) Add(pathname string, maxline int, filter Filter, lines in
 
 	tail = &TailName{
 		name:    absname,
-		file:    file,
 		lastp:   pos,
 		lines:   q,
 		filter:  filter,
@@ -457,14 +433,6 @@ func (tw *TailWatcher) Remove(pathname string) error {
 		return fmt.Errorf("no such a dir: %s", dirname)
 	}
 
-	if tail.file != nil {
-		if err := tail.file.Close(); err != nil {
-			if glog.V(1) {
-				glog.Infof("File.Close(): %s", err)
-			}
-			return err
-		}
-	}
 	tail.lines.Done()
 	delete(tw.tails, absname)
 
@@ -497,14 +465,6 @@ func (tw *TailWatcher) handleParentDisappear(dname string, errch chan<- error) {
 			continue
 		}
 		tail.lines.Done()
-		if tail.file != nil {
-			if err := tail.file.Close(); err != nil {
-				if glog.V(1) {
-					glog.Infof("File.Close(): %s", err)
-				}
-				errch <- err
-			}
-		}
 	}
 	delete(tw.dirs, dname)
 }
