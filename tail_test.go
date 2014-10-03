@@ -203,7 +203,12 @@ func TestTailAdd(t *testing.T) {
 	}
 
 	// containing non LF terminated string
-	go func() { testFiles[1].WriteString("test string\nnot-LF-terminated") }()
+	go func() {
+		if _, err := testFiles[1].WriteString("test string\nnot-LF-terminated"); err != nil {
+			t.Fatal("could not write to test file: %s", err)
+		}
+		testFiles[1].Sync()
+	}()
 	select {
 	case line = <-tailch:
 	case <-time.After(1 * time.Second):
@@ -254,7 +259,7 @@ func TestTailRemoveCreate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create testFile: %s", err)
 	}
-	defer testFile1.Close()
+
 	// file contains 6 lines - a b c d e f
 	if _, err = testFile1.WriteString("ABCDEFGHIJKLMNOPQRSTUVWXYZa\nb\nc\nd\ne\nf\n"); err != nil {
 		t.Fatalf("write testFile failed: %s", err)
@@ -282,6 +287,10 @@ func TestTailRemoveCreate(t *testing.T) {
 	}
 	if s != "bcdef" {
 		t.Fatalf("expect bcdef but got: %s\n", s)
+	}
+
+	if testFile1.Close() != nil {
+		t.Fatalf("could not close test file1: %s", err)
 	}
 
 	// rename
