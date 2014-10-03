@@ -301,11 +301,12 @@ func (tail *TailName) String() string {
 }
 
 type TailWatcher struct {
-	watch *inotify.Watcher
-	tails map[string]*TailName // key: abs pathname or parent dirname if TailName is nil
-	dirs  map[string]int       // key: dirname, value: refcount
-	mu    sync.Mutex           // to sync tails map
-	Error <-chan error
+	watch  *inotify.Watcher
+	tails  map[string]*TailName // key: abs pathname or parent dirname if TailName is nil
+	dirs   map[string]int       // key: dirname, value: refcount
+	mu     sync.Mutex           // to sync tails map
+	Error  <-chan error
+	closed bool
 }
 
 // TailWatcher constructor
@@ -324,6 +325,7 @@ func NewTailWatcher() (*TailWatcher, error) {
 		make(map[string]int),
 		*new(sync.Mutex),
 		watcher.Error,
+		false,
 	}
 	go tw.follow()
 	return tw, nil
@@ -351,7 +353,7 @@ func (tw *TailWatcher) follow() {
 }
 
 func (tw *TailWatcher) Close() error {
-	if tw.watch == nil {
+	if tw.closed {
 		return os.NewSyscallError("closed", syscall.EBADF)
 	}
 	if err := tw.watch.Close(); err != nil {
@@ -377,13 +379,13 @@ func (tw *TailWatcher) Close() error {
 	}
 	tw.tails = nil
 	tw.dirs = nil
-	tw.watch = nil
+	tw.closed = true
 
 	return nil
 }
 
 func (tw *TailWatcher) Add(pathname string, maxline int, filter Filter, lines int) (Tail, error) {
-	if tw.watch == nil {
+	if tw.closed {
 		return nil, os.NewSyscallError("closed", syscall.EBADF)
 	}
 
@@ -516,7 +518,7 @@ ERR_CLOSE:
 }
 
 func (tw *TailWatcher) Lookup(pathname string) (Tail, error) {
-	if tw.watch == nil {
+	if tw.closed {
 		return nil, os.NewSyscallError("closed", syscall.EBADF)
 	}
 
@@ -539,7 +541,7 @@ func (tw *TailWatcher) Lookup(pathname string) (Tail, error) {
 }
 
 func (tw *TailWatcher) Remove(pathname string) error {
-	if tw.watch == nil {
+	if tw.closed {
 		return os.NewSyscallError("closed", syscall.EBADF)
 	}
 
