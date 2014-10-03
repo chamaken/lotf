@@ -607,26 +607,22 @@ func TestParentDisappear(t *testing.T) {
 
 	// create 10 removing parent dirs in the tmpdir
 	// and two files in a removing dir
-	var testDirs [10]string
-	var testFiles [20]*os.File
-	for i := 0; i < 10; i++ {
-		testDirs[i], err = ioutil.TempDir(dir, "rmtest")
+	var testDirs [100]string
+	for i := 0; i < 100; i++ {
+		dname := fmt.Sprintf("rmtest%d", i)
+		testDirs[i], err = ioutil.TempDir(dir, dname)
 		if err != nil {
 			t.Fatalf("failed to create testDir: %s", err)
 		}
-		if testFiles[i], err = os.OpenFile(filepath.Join(testDirs[i], "TailWatcher1"),
-			os.O_RDWR|os.O_CREATE, 0666); err != nil {
-			t.Fatalf("failed to create testFile: %s", err)
-		}
-		if err := testFiles[i].Close(); err != nil {
-			t.Fatalf("failed to close testFile: %s", err)
-		}
-		if testFiles[i+10], err = os.OpenFile(filepath.Join(testDirs[i], "TailWatcher2"),
-			os.O_RDWR|os.O_CREATE, 0666); err != nil {
-			t.Fatalf("failed to create testFile: %s", err)
-		}
-		if err := testFiles[i+10].Close(); err != nil {
-			t.Fatalf("failed to close testFile: %s", err)
+		for j := 0; j < 10; j++ {
+			fname := filepath.Join(testDirs[i], fmt.Sprintf("testfile%d", j))
+			testFile, err := os.OpenFile(fname, os.O_RDWR|os.O_CREATE, 0666)
+			if err != nil {
+				t.Fatalf("failed to create testFile: %s", err)
+			}
+			if err := testFile.Close(); err != nil {
+				t.Fatalf("failed to close testFile: %s", err)
+			}
 		}
 	}
 
@@ -634,44 +630,45 @@ func TestParentDisappear(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not create TailWatcher: %s", err)
 	}
-	defer func() {
-		t.Logf("-------- call tw.Close()")
-		// tw.Close()
-		t.Logf("-------- returned tw.Close()")
-	}()
+	defer tw.Close()
 	go func() {
 		for err := range tw.Error {
 			t.Fatalf("error received: %s", err)
 		}
 	}()
 
-	for i := 0; i < 20; i++ {
-		if _, err = tw.Add(testFiles[i].Name(), 1, nil, 0); err != nil {
-			t.Fatalf("failed to Add to TailWatcher: %s", err)
+	for i := 0; i < 100; i++ {
+		for j := 0; j < 10; j++ {
+			fname := filepath.Join(testDirs[i], fmt.Sprintf("testfile%d", j))
+			if _, err = tw.Add(fname, 1, nil, 0); err != nil {
+				t.Fatalf("failed to Add to TailWatcher: %s", err)
+			}
 		}
 	}
 	// checking
-	if len(tw.tails) != 30 { // 20 files 10 parent dirs
-		t.Fatalf("len(tails) should be 20, but got: %d", len(tw.tails))
+	if len(tw.tails) != 1100 { // 100 dirs, each have 10 files
+		t.Fatalf("len(tails) should be 1100, but got: %d", len(tw.tails))
 	}
-	if len(tw.dirs) != 10 {
-		t.Fatalf("len(dirs) should be 10, but got: %d", len(tw.dirs))
+	if len(tw.dirs) != 100 {
+		t.Fatalf("len(dirs) should be 100, but got: %d", len(tw.dirs))
 	}
 
 	// remove a few
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 30; i++ {
+		t.Logf("RemoveAll(): %s", testDirs[i])
 		if err = os.RemoveAll(testDirs[i]); err != nil {
 			t.Fatalf("failed to RemoveAll: %s", err)
 		}
 	}
-	// wait receiving events above.
-	time.Sleep(100 * time.Millisecond)
+
+	// wait receiving all events
+	time.Sleep(2 * time.Second)
 
 	// check again
-	if len(tw.tails) != 21 { // 7 dirs remainded
-		t.Fatalf("len(tails) should be 14, but got: %d", len(tw.tails))
+	if len(tw.tails) != 770 { // 70 dirs remainded
+		t.Fatalf("len(tails) should be 770, but got: %d", len(tw.tails))
 	}
-	if len(tw.dirs) != 7 {
-		t.Fatalf("len(dirs) should be 7, but got: %d", len(tw.dirs))
+	if len(tw.dirs) != 70 {
+		t.Fatalf("len(dirs) should be 70, but got: %d", len(tw.dirs))
 	}
 }
