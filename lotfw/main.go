@@ -135,6 +135,11 @@ func main() {
 	if err != nil {
 		glog.Fatalf("NewTailWatcher: %s", err)
 	}
+	go func() {
+		for err := range watcher.Error {
+			glog.Errorf("error from watcher: %s", err)
+		}
+	}()
 	for k, v := range cfg.lotfs {
 		glog.Infof("creating tail: %s", v.filename)
 		t, err := watcher.Add(v.filename, v.buflines, v.filter, v.lastlines)
