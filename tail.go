@@ -443,6 +443,7 @@ func (tw *TailWatcher) Remove(pathname string) error {
 			}
 			return err
 		}
+		delete(tw.tails, dirname)
 		delete(tw.dirs, dirname)
 		return nil
 	} else {
