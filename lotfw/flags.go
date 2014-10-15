@@ -23,7 +23,7 @@ type Config struct {
 	Address  string
 	Root     string
 	Template string
-	Duration int
+	Interval int
 	Lotfs    []LotfConfig
 }
 
@@ -39,7 +39,7 @@ type config struct {
 	addr     string
 	root     string
 	template string
-	duration int
+	interval int
 	lotfs    map[string]*lotfConfig
 }
 
@@ -95,7 +95,7 @@ func makeResources(fname string) (*config, error) {
 		addr:     s.Address,
 		root:     s.Root,
 		template: s.Template,
-		duration: s.Duration,
+		interval: s.Interval,
 		lotfs:    lotfs}, nil
 }
 

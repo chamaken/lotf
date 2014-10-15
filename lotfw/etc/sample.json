@@ -2,7 +2,7 @@
     "address":	"127.0.0.1:8088",
     "root":	"/lotf",
     "template": "template.html",
-    "duration": 10,
+    "interval": 10,
     "lotfs": [
         {
 	    "name":	"sample",
