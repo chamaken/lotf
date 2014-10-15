@@ -30,9 +30,10 @@ type Config struct {
 }
 
 type LotfConfig struct {
-	Name   string
-	File   string
-	Filter string
+	Name     string
+	File     string
+	Filter   string
+	Template string
 }
 
 type config struct {
@@ -48,6 +49,7 @@ type config struct {
 type lotfConfig struct {
 	filename string
 	filter   lotf.Filter
+	template string
 }
 
 func makeResources(fname string) (*config, error) {
@@ -83,6 +85,7 @@ func makeResources(fname string) (*config, error) {
 		lotfs[v.Name] = &lotfConfig{
 			filename: v.File,
 			filter:   filter,
+			template: v.Template,
 		}
 	}
 

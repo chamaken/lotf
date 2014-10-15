@@ -31,7 +31,7 @@ const (
 
 var cfg *config
 var cookies *TickMap
-var templates *template.Template
+var templates = make(map[string]*template.Template)
 var tails = make(map[string]lotf.Tail)
 
 func makeJsonRC(t lotf.Tail) *JsonRC {
@@ -80,7 +80,7 @@ func handleNext(w http.ResponseWriter, r *http.Request, tail lotf.Tail) {
 	w.Write(js)
 }
 
-func handleFirst(w http.ResponseWriter, r *http.Request, tail lotf.Tail) {
+func handleFirst(w http.ResponseWriter, r *http.Request, tail lotf.Tail, name string) {
 	uuid, err := cookies.Add(tail.Clone())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -96,7 +96,7 @@ func handleFirst(w http.ResponseWriter, r *http.Request, tail lotf.Tail) {
 		JsonPath: r.URL.Path + NEXT_SUFFIX,
 		Expire:   cfg.interval * 1000 / 2,
 	}
-	if err := templates.ExecuteTemplate(w, cfg.template, rc); err != nil {
+	if err := templates[name].ExecuteTemplate(w, cfg.lotfs[name].template, rc); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -117,7 +117,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
-		handleFirst(w, r, tail)
+		handleFirst(w, r, tail, rpath)
 	}
 }
 
@@ -129,7 +129,6 @@ func main() {
 		glog.Fatalf("config error: %s", err)
 	}
 
-	templates = template.Must(template.ParseFiles(cfg.template))
 	cookies = NewTickMap(time.Duration(cfg.interval) * time.Second)
 	watcher, err := lotf.NewTailWatcher()
 	if err != nil {
@@ -140,11 +139,24 @@ func main() {
 			glog.Errorf("error from watcher: %s", err)
 		}
 	}()
+
+	templateNames := make(map[string]*template.Template)
+	defaultTemplate := template.Must(template.ParseFiles(cfg.template))
+	templates[defaultTemplate.Name()] = defaultTemplate
 	for k, v := range cfg.lotfs {
 		glog.Infof("creating tail: %s", v.filename)
 		t, err := watcher.Add(v.filename, cfg.buflines, v.filter, cfg.lastlines)
 		if err != nil {
 			glog.Fatalf("Add to watcher - %s: %s", v.filename, err)
+		}
+		if len(v.template) == 0 {
+			templates[k] = defaultTemplate
+		} else {
+			t := template.Must(template.ParseFiles(v.template))
+			if _, found := templateNames[t.Name()]; !found {
+				templateNames[t.Name()] = t
+			}
+			templates[k] = templateNames[t.Name()]
 		}
 		tails[k] = t
 	}
