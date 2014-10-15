@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"github.com/chamaken/lotf"
-	"github.com/golang/glog"
 	"io"
 	"os"
 )
@@ -70,23 +69,53 @@ func makeResources(fname string) (*config, error) {
 
 	lotfs := make(map[string]*lotfConfig)
 	for _, v := range s.Lotfs {
+		// XXX: check required json entries
+		if len(v.Name) == 0 {
+			return nil, errors.New("no name specified in lotfs")
+		}
 		if _, found := lotfs[v.Name]; found {
-			glog.Fatalf("founnd dup name: %s", v.Name)
+			return nil, errors.New(fmt.Sprintf("founnd dup name: %s", v.Name))
 		}
 		var filter lotf.Filter
 		if len(v.Filter) > 0 {
 			filter, err = lotf.RegexpFilter(v.Filter)
 			if err != nil {
-				glog.Fatalf("create filter: %s", v.Filter)
+				return nil, errors.New(fmt.Sprintf("create filter: %s", v.Filter))
 			}
 		} else {
 			filter = nil
 		}
+		if len(v.File) == 0 {
+			return nil, errors.New(fmt.Sprintf("no file specified: %s", v.Name))
+		}
+
 		lotfs[v.Name] = &lotfConfig{
 			filename: v.File,
 			filter:   filter,
 			template: v.Template,
 		}
+	}
+
+	if len(s.Address) == 0 {
+		return nil, errors.New("address is not specified")
+	}
+	if len(s.Root) == 0 {
+		return nil, errors.New("root is not specified")
+	}
+	if len(s.Template) == 0 {
+		return nil, errors.New("default template is not specified")
+	}
+	if s.Interval == 0 {
+		return nil, errors.New("interval is not specified")
+	}
+	if s.Buflines == 0 {
+		return nil, errors.New("buflines is not specified")
+	}
+	if s.Lastlines == 0 {
+		return nil, errors.New("lastlines is not specified")
+	}
+	if len(lotfs) == 0 {
+		return nil, errors.New("no lotf specified")
 	}
 
 	if s.Root[len(s.Root)-1] != '/' {
@@ -99,7 +128,8 @@ func makeResources(fname string) (*config, error) {
 		interval:  s.Interval,
 		buflines:  s.Buflines,
 		lastlines: s.Lastlines,
-		lotfs:     lotfs}, nil
+		lotfs:     lotfs,
+	}, nil
 }
 
 func parseFlags() (*config, error) {
