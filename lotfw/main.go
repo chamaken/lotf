@@ -94,7 +94,7 @@ func handleFirst(w http.ResponseWriter, r *http.Request, tail lotf.Tail) {
 	rc := &TemplateRC{
 		Title:    fmt.Sprintf("%s", tail),
 		JsonPath: r.URL.Path + NEXT_SUFFIX,
-		Expire:   cfg.duration * 1000 / 2,
+		Expire:   cfg.interval * 1000 / 2,
 	}
 	if err := templates.ExecuteTemplate(w, cfg.template, rc); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -130,7 +130,7 @@ func main() {
 	}
 
 	templates = template.Must(template.ParseFiles(cfg.template))
-	cookies = NewTickMap(time.Duration(cfg.duration) * time.Second)
+	cookies = NewTickMap(time.Duration(cfg.interval) * time.Second)
 	watcher, err := lotf.NewTailWatcher()
 	if err != nil {
 		glog.Fatalf("NewTailWatcher: %s", err)
