@@ -20,34 +20,34 @@ func init() {
 }
 
 type Config struct {
-	Address  string
-	Root     string
-	Template string
-	Interval int
-	Lotfs    []LotfConfig
+	Address   string
+	Root      string
+	Template  string
+	Interval  int
+	Buflines  int
+	Lastlines int
+	Lotfs     []LotfConfig
 }
 
 type LotfConfig struct {
-	Name      string
-	File      string
-	Filter    string
-	Buflines  int
-	Lastlines int
+	Name   string
+	File   string
+	Filter string
 }
 
 type config struct {
-	addr     string
-	root     string
-	template string
-	interval int
-	lotfs    map[string]*lotfConfig
+	addr      string
+	root      string
+	template  string
+	interval  int
+	buflines  int
+	lastlines int
+	lotfs     map[string]*lotfConfig
 }
 
 type lotfConfig struct {
-	filename  string
-	filter    lotf.Filter
-	buflines  int
-	lastlines int
+	filename string
+	filter   lotf.Filter
 }
 
 func makeResources(fname string) (*config, error) {
@@ -81,10 +81,8 @@ func makeResources(fname string) (*config, error) {
 			filter = nil
 		}
 		lotfs[v.Name] = &lotfConfig{
-			filename:  v.File,
-			filter:    filter,
-			buflines:  v.Buflines,
-			lastlines: v.Lastlines,
+			filename: v.File,
+			filter:   filter,
 		}
 	}
 
@@ -92,11 +90,13 @@ func makeResources(fname string) (*config, error) {
 		s.Root += "/"
 	}
 	return &config{
-		addr:     s.Address,
-		root:     s.Root,
-		template: s.Template,
-		interval: s.Interval,
-		lotfs:    lotfs}, nil
+		addr:      s.Address,
+		root:      s.Root,
+		template:  s.Template,
+		interval:  s.Interval,
+		buflines:  s.Buflines,
+		lastlines: s.Lastlines,
+		lotfs:     lotfs}, nil
 }
 
 func parseFlags() (*config, error) {

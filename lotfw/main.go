@@ -142,7 +142,7 @@ func main() {
 	}()
 	for k, v := range cfg.lotfs {
 		glog.Infof("creating tail: %s", v.filename)
-		t, err := watcher.Add(v.filename, v.buflines, v.filter, v.lastlines)
+		t, err := watcher.Add(v.filename, cfg.buflines, v.filter, cfg.lastlines)
 		if err != nil {
 			glog.Fatalf("Add to watcher - %s: %s", v.filename, err)
 		}

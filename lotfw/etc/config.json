@@ -3,26 +3,22 @@
     "root":	"/lotf",
     "template": "template.html",
     "interval": 10,
+    "buflines":	100,
+    "lastlines":100,
     "lotfs": [
         {
 	    "name":	"apache/access",
             "file":     "/var/log/apache2/access.log",
- 	    "filter":	"etc/http_filter",
-	    "buflines":	100,
-	    "lastlines":100
+ 	    "filter":	"etc/http_filter"
 	},
 	{
 	    "name":	"apache/error",
-            "file":     "/var/log/apache2/error.log",
-	    "buflines":	100,
-	    "lastlines":100
+            "file":     "/var/log/apache2/error.log"
 	},
         {
 	    "name":	"syslog",
 	    "file":     "/var/log/syslog",
-	    "filter":   "!etc/invert_syslog_filter",
-	    "buflines":	100,
-	    "lastlines":100
+	    "filter":   "!etc/invert_syslog_filter"
 	}
     ]
 }

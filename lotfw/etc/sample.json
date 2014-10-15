@@ -3,13 +3,13 @@
     "root":	"/lotf",
     "template": "template.html",
     "interval": 10,
+    "buflines":	10,
+    "lastlines":10,
     "lotfs": [
         {
 	    "name":	"sample",
             "file":     "etc/sample_file",
- 	    "filter":	"!etc/sample_filter",
-	    "buflines":	10,
-	    "lastlines":10
+	    "filter":	"!etc/sample_filter"
 	}
     ]
 }
