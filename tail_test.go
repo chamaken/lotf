@@ -159,8 +159,17 @@ func TestFileLinesFilter(t *testing.T) {
 		}
 	}()
 
+	// create template filter
+	tmpfilter, err := ioutil.TempFile("", TMP_PREFIX)
+	if err != nil {
+		t.Fatalf("TempFile failed: %s", err)
+	}
+	if _, err = tmpfilter.WriteString("^$\n"); err != nil {
+		t.Fatalf("write to tmp filter failed: %s", err)
+	}
+
 	// create filter
-	filter, err := RegexpFilter("!testfilter")
+	filter, err := RegexpFilter("!" + tmpfilter.Name())
 	if err != nil {
 		t.Fatalf("failed to create filter: %s", err)
 	}
