@@ -179,8 +179,6 @@ func TestFileLinesFilter(t *testing.T) {
 		t.Fatalf("failed to Add to TailWatcher: %s", err)
 	}
 
-	//  0 1 23 45 6 78 9
-	// "\n\na\nb\n\nc\nd"
 	s := *tail.WaitNext()
 	if s != "a" {
 		t.Fatalf("expect `a', but got: %s", s)
@@ -188,6 +186,25 @@ func TestFileLinesFilter(t *testing.T) {
 	s = *tail.WaitNext()
 	if s != "b" {
 		t.Fatalf("expect `b', but got: %s", s)
+	}
+	s = *tail.WaitNext()
+	if s != "c" {
+		t.Fatalf("expect `c', but got: %s", s)
+	}
+
+	// update filter
+	if _, err = tmpfilter.WriteString("dd\nbb\n"); err != nil {
+		t.Fatalf("write to tmp filter failed: %s", err)
+	}
+	if err = filter.Reload(); err != nil {
+		t.Fatalf("failed to reload filter: %s", err)
+	}
+	if _, err = testFile.WriteString("d\na\nbb\nc\n"); err != nil {
+		t.Fatalf("write testFile failed: %s", err)
+	}
+	s = *tail.WaitNext()
+	if s != "a" {
+		t.Fatalf("expect `a', but got: %s", s)
 	}
 	s = *tail.WaitNext()
 	if s != "c" {
