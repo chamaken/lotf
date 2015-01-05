@@ -88,6 +88,7 @@ func main() {
 		if rcs[i].tail, err = watcher.Add(rc.filename, nlines, rc.filter, rc.buflines); err != nil {
 			glog.Fatalf("could not watch: %s\n", err)
 		}
+		rcs[i].filter = rc.filter
 		glog.Infof("watch added - path: %s, filter: %s", rc.filename, rc.filter)
 
 		if rc.tcpaddr != nil {
